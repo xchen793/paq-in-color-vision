@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Color Spectrum Slider</title>
+<style>
+    #color-spectrum {
+        width: 100px;
+        height: 100px;
+        margin-bottom: 20px;
+    }
+</style>
+</head>
+<body>
+    <h2>Color Spectrum Slider</h2>
+    <input type="range" min="0" max="500" value="0" id="color-slider">
+    <div id="color-spectrum"></div>
+    <p id="slider-value"></p>
+    
+    <script>
+        // Function to update color spectrum based on slider value, RGB direction, and starting color
+        function updateColor(redDirection, greenDirection, blueDirection, startingColor) {
+            return function() {
+                var slider = document.getElementById("color-slider");
+                var spectrum = document.getElementById("color-spectrum");
+                var sliderValue = document.getElementById("slider-value");
+                
+                // Get the slider value
+                var sliderPos = slider.value;
+                
+                // Calculate the color based on the direction and slider position
+                var color = [
+                    Math.min(255, Math.max(0, redDirection * sliderPos + startingColor[0])),
+                    Math.min(255, Math.max(0, greenDirection * sliderPos + startingColor[1])),
+                    Math.min(255, Math.max(0, blueDirection * sliderPos + startingColor[2]))
+                ];
+
+                // Convert color to RGB string
+                var rgbColor = 'rgb(' + color.join(', ') + ')';
+                
+                // Set the background color of the spectrum
+                spectrum.style.background = rgbColor;
+                
+                // Display the slider value
+                sliderValue.textContent = "Slider Value: " + sliderPos;
+            };
+        }
+        
+        // Extract data passed from Flask
+        var data = JSON.parse('{{ data | tojson | safe }}');
+        var redDirection = data.red_direction;
+        var greenDirection = data.green_direction;
+        var blueDirection = data.blue_direction;
+        var startingColor = data.starting_color;
+        
+        // Add event listener to the slider
+        var updateColorFunction = updateColor(redDirection, greenDirection, blueDirection, startingColor);
+        document.getElementById("color-slider").addEventListener("input", updateColorFunction);
+        
+        // Initial call to update color spectrum
+        updateColorFunction();
+    </script>
+</body>
+</html>
