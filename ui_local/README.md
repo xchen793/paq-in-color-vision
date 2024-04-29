@@ -3,6 +3,7 @@
 # Getting started
 This was tested with python 3.11.5. 
 - Create a new conda environment: `conda create --name paqui -c conda-forge python=3.11.5`
+- Activate environment: `conda activate paqui`
 - Make sure you're in the `ui_loca` directory
 - Install requirements: `pip install -r requirements.txt`
 
