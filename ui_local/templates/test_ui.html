@@ -5,18 +5,65 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Color Spectrum Slider</title>
 <style>
-    #color-spectrum {
+    .color-block {
         width: 100px;
         height: 100px;
-        margin-bottom: 20px;
+        margin-right: 20px;
+        vertical-align: top;
     }
+
+    .color-container {
+        margin-bottom: 20px;
+        overflow: hidden;
+        width: 300px
+    }
+
+    .color-container .col1,
+    .color-container .col2 {
+        width: 49%;
+    }
+    
+    .color-container .col1{
+        float: left;
+    }
+
+    .color-container .col2{
+        float: right;
+    }
+
+    .color-container .color-label{
+        width: 100px;
+        height: 20px;
+        text-align: center;
+        display: block;
+    }
+
+    #color-controls {
+        display: inline-block;
+        vertical-align: top;
+    }
+
 </style>
 </head>
 <body>
     <h2>Color Spectrum Slider</h2>
-    <input type="range" min="0" max="500" value="0" id="color-slider">
-    <div id="color-spectrum"></div>
-    <p id="slider-value"></p>
+    
+    
+    <div class="color-container">
+        <div class="col1">
+            <div class="color-block" id="fixed-color"></div>
+            <color-label for="fixed-color">Color 1 (Reference)</color-label>
+        </div>
+        <div class="col2">
+            <div class="color-block" id="color-spectrum"></div>
+            <color-label for="color-spectrum">Color 2</color-label>
+        </div>
+    </div>
+    <br>
+    <div id="color-controls">
+        <input type="range" min="0" max="500" value="0" id="color-slider">
+        <p id="slider-value"></p>
+    </div>
     
     <script>
         // Function to update color spectrum based on slider value, RGB direction, and starting color
@@ -24,6 +71,7 @@
             return function() {
                 var slider = document.getElementById("color-slider");
                 var spectrum = document.getElementById("color-spectrum");
+                var fixedColor = document.getElementById("fixed-color");
                 var sliderValue = document.getElementById("slider-value");
                 
                 // Get the slider value
@@ -41,6 +89,10 @@
                 
                 // Set the background color of the spectrum
                 spectrum.style.background = rgbColor;
+
+                // Set the background color of the fixed color block to the starting color
+                var startingColorRGB = 'rgb(' + startingColor.join(', ') + ')';
+                fixedColor.style.background = startingColorRGB;
                 
                 // Display the slider value
                 sliderValue.textContent = "Slider Value: " + sliderPos;
@@ -53,11 +105,11 @@
         var greenDirection = data.green_direction;
         var blueDirection = data.blue_direction;
         var startingColor = data.starting_color;
-        
+
         // Add event listener to the slider
         var updateColorFunction = updateColor(redDirection, greenDirection, blueDirection, startingColor);
         document.getElementById("color-slider").addEventListener("input", updateColorFunction);
-        
+
         // Initial call to update color spectrum
         updateColorFunction();
     </script>
