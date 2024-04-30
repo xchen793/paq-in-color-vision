@@ -12,6 +12,7 @@ This was tested with python 3.11.5.
 - It'll print some address in command line, e.g., `http://127.0.0.1:5000`. Visit that address in browser to view
 
 # Future to-dos
+- [x] Add reference color
 - [ ] Get scaling right: Currently, the slider lets users slide from 0 - 500. However, depending on the magnitude of the randomly chosen direction, this may not encompass all colors along that direction.
 - [ ] Store PAQ response: Need to return slider value back to webapp for future processing 
 - [ ] Build a full user experience: Need to run this loop (pick ref and direction, render page, store user response) sequentially
