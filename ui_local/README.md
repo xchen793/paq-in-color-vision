@@ -14,5 +14,6 @@ This was tested with python 3.11.5.
 # Future to-dos
 - [x] Add reference color
 - [ ] Get scaling right: Currently, the slider lets users slide from 0 - 500. However, depending on the magnitude of the randomly chosen direction, this may not encompass all colors along that direction.
-- [ ] Store PAQ response: Need to return slider value back to webapp for future processing 
+- [x] Store PAQ response: Need to return slider value back to webapp for future processing 
+- [ ] Build backend: Need a place to store the responses -- Google sheets in the meantime?
 - [ ] Build a full user experience: Need to run this loop (pick ref and direction, render page, store user response) sequentially

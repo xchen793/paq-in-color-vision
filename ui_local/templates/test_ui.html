@@ -63,6 +63,7 @@
     <div id="color-controls">
         <input type="range" min="0" max="500" value="0" id="color-slider">
         <p id="slider-value"></p>
+        <button id="done-button">Done</button>
     </div>
     
     <script>
@@ -109,6 +110,30 @@
         // Add event listener to the slider
         var updateColorFunction = updateColor(redDirection, greenDirection, blueDirection, startingColor);
         document.getElementById("color-slider").addEventListener("input", updateColorFunction);
+        
+        // Function to send slider value to Flask app
+        function sendSliderValue() {
+            var sliderValue = document.getElementById("slider-value").textContent;
+            // Example of sending slider value to Flask app using fetch
+            fetch('/update_slider', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ sliderValue: sliderValue }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Slider value sent successfully:', data);
+                // Optionally, handle the response from Flask app here
+            })
+            .catch((error) => {
+                console.error('Error sending slider value:', error);
+            });
+        }
+
+        // Add event listener to the "Done" button
+        document.getElementById("done-button").addEventListener("click", sendSliderValue);
 
         // Initial call to update color spectrum
         updateColorFunction();
