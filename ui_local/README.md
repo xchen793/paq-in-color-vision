@@ -15,3 +15,4 @@ This was tested with python 3.11.5.
 - [ ] Get scaling right: Currently, the slider lets users slide from 0 - 500. However, depending on the magnitude of the randomly chosen direction, this may not encompass all colors along that direction.
 - [ ] Store PAQ response: Need to return slider value back to webapp for future processing 
 - [ ] Build a full user experience: Need to run this loop (pick ref and direction, render page, store user response) sequentially
+- [ ] At the end, the thank-you html needs to present the results about the user's copunctal point
