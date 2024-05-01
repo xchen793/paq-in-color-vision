@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RGB Color Path Slider</title>
+    <style>
+        .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+        }
+        #fixed-color-display {
+            width: 100px;
+            height: 100px;
+            background-color: rgb(0, 191, 255); /* Fixed color example */
+            margin-right: 20px;
+        }
+        #controls {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        #color-display {
+            width: 100px;
+            height: 100px;
+            margin-top: 20px;
+            background-color: rgb(0, 0, 0); /* Dynamic color display initialization */
+        }
+        input[type="range"] {
+            width: 200px; /* Adjust this value to make the slider shorter */
+            margin-left: 0; /* Centers the slider within the controls div */
+        }
+        .button-group {
+            display: flex;
+            justify-content: flex-end; /* Aligns buttons to the right */
+            margin-top: auto; /* Pushes the button group to the bottom */
+        }
+    </style>
+</head>
+<body>
+    <h2>RGB Color Path Slider</h2>
+    <div class="container">
+        <div id="fixed-color-display"></div> <!-- Fixed color display -->
+        <div id="controls">
+            Adjust Color: <input type="range" min="0" max="100" value="0" id="color-slider"><br>
+            <div id="color-display"></div> <!-- Shows the color changing as slider is adjusted -->
+            <div class="button-group">
+                <button id="submit-color">Submit Color</button>
+                <button id="no-match">No Match</button>
+                <button id="next-page">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>     
+
+</body>
+</html>
