@@ -7,7 +7,7 @@ import random
 #from typing import Callable
 from collections import defaultdict
 
-solvers = [cp.SCS, cp.MOSEK, cp.CVXOPT]
+solvers = [cp.SCS, cp.CVXOPT, cp.MOSEK]
 
 # forward model
 def generate_gt(n_ref: int, eigenvalue_gap: int) -> dict:
@@ -98,7 +98,7 @@ def generate_measurements(num_meas: int, gt: dict, query_type: str = 'paq', thre
                 feat_matrix_n[:,:,i] = gamma_i * np.outer(a_i, a_i)
                 responses_n.append( gamma_i )
 
-        elif query_type == 'paired_comparison':
+        elif query_type == 'triplet':
             for i in range(num_meas):
                 delta_i = np.random.normal(size=(2,2))
                 feat_matrix_n[:,:,i] = np.outer(delta_i[0] - delta_i[1], delta_i[0] - delta_i[1])
@@ -112,10 +112,10 @@ def generate_measurements(num_meas: int, gt: dict, query_type: str = 'paq', thre
 
                 responses_n.append(outcome)
 
-        elif query_type == 'triplet':
+        elif query_type == 'paired_comparison':
             for i in range(num_meas):
-                deltas_i = np.random.normal(size=(2,2))
-                feat_matrix_n[:,:,i] = 2*np.outer(deltas_i[0], deltas_i[2] - deltas_i[1]) + np.outer(deltas_i[1], deltas_i[1]) - np.outer(deltas_i[2], deltas_i[2])
+                delta_i = np.random.normal(size=(2,))
+                feat_matrix_n[:,:,i] = np.outer(delta_i, delta_i)
                 
                 dist = np.trace(feat_matrix_n[:,:,i] @ Sig_n)
 
@@ -138,38 +138,33 @@ def estimate_metric(responses: dict, thresh: float = 1, query_type: str = 'paq',
         feat_matrix_n, labels = responses[n]
         feat_flat_n = feat_matrix_n.reshape(4, -1)
         num_meas = len(labels)
-        if query_type == 'paq':
-            Sig_hat = cp.Variable((2,2), PSD=True)
 
-            loss = cp.sum_squares( thresh - (cp.vec(Sig_hat) @ feat_flat_n) ) / num_meas + 0.5 * cp.norm(Sig_hat, 'fro')
+        # estimation
+        Sig_hat = cp.Variable((2,2), PSD=True)
+
+        if query_type == 'paq':
+            loss = cp.sum_squares( thresh - (cp.vec(Sig_hat) @ feat_flat_n) ) / num_meas #+ 0.1 * cp.norm(Sig_hat, 'fro')
+
+        elif query_type == 'triplet':
+            loss = cp.sum(cp.pos( thresh - cp.multiply(labels, (cp.vec(Sig_hat) @ feat_flat_n)) ) ) / num_meas #+ 0.1 * cp.norm(Sig_hat, 'fro')
 
         elif query_type == 'paired_comparison':
-            Sig_hat = cp.Variable((2,2), PSD=True)
+            loss = cp.sum(cp.pos( thresh - cp.multiply(labels, (cp.vec(Sig_hat) @ feat_flat_n))) ) / num_meas #+ 0.1 * cp.norm(Sig_hat, 'fro')
 
-            loss = cp.sum(cp.pos( cp.multiply(labels, thresh - (cp.vec(Sig_hat) @ feat_flat_n)) ) ) / num_meas
-
-        # elif query_type == 'triplet':
-        #     Sig_hat = cp.Variable((2,2), PSD=True)
-
-        #     loss = cp.sum(cp.pos(thresh - cp.multiply(labels, (cp.vec(Sig_hat) @ feat_flat_n)) ) ) / num_meas
-        #     obj = cp.Minimize(loss)
-        #     prob = cp.Problem(obj)
-
-        #     prob.solve(solver=cp.SCS, max_iters=max_iter)
-
-        #     est = Sig_hat.value
 
         obj = cp.Minimize(loss)
         prob = cp.Problem(obj)
 
-        solver_ct = 0
-        while prob.status != cp.OPTIMAL and solver_ct < len(solvers):
-            prob.solve(solver=solvers[solver_ct], max_iters = max_iter)
-
-        est = Sig_hat.value
+        prob.solve(solver=cp.SCS, max_iters = max_iter)
+        ct = 1
+        while prob.status != cp.OPTIMAL and ct < len(solvers):
+            prob.solve(solver=solvers[ct], max_iters = max_iter)
+            ct += 1
         
-        if prob.status == cp.OPTIMAL:
-            est_out[n] = est
+        # print(ct)
+        # print(prob.status)
+        est = Sig_hat.value
+        est_out[n] = est
     
     return est_out
 
@@ -182,8 +177,8 @@ def estimate_metric(responses: dict, thresh: float = 1, query_type: str = 'paq',
 num_ref = 25
 eigenvalue_gap = 10
 query_type = 'paired_comparison'
-num_meas = 5
-thresh = 0.1
+num_meas = 100
+thresh = 5
 
 gt_out = generate_gt(num_ref, eigenvalue_gap)
 meas_out = generate_measurements(num_meas, gt_out, query_type=query_type, thresh=thresh)
