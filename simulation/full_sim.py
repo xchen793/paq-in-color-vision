@@ -170,6 +170,29 @@ def estimate_metric(responses: dict, thresh: float = 1, query_type: str = 'paq',
 
 
 # step 2: compute cones
+def compute_cones(est_out: dict, gt: dict, num_meas: int, cheat: bool = True, const: float = 10) -> dict:
+    alphas = {}
+    n_ref = len(est_out)
+    alphas = []
+    for n, sigma_hat in est_out.items():
+        # compute svd of Sig_hat
+        eigenvalues, eigenvectors = np.linalg.eigh(sigma_hat)
+        indices = np.argsort(eigenvalues)[::-1]
+        eigenvalues = eigenvalues[indices]
+        eigenvectors = eigenvectors[:, indices]
+
+        lambda_1_hat_n, lambda_2_hat_n = eigenvalues[0], eigenvalues[1]
+        u1_hat, u2_hat = eigenvectors[:, 0], eigenvectors[:, 1]
+        
+        if cheat:
+            tau = np.linalg.norm(sigma_hat - gt['sigma_stars'][n], 2)
+        else:
+            tau = const * 2 / num_meas
+
+        alpha = 2 * tau / np.abs(lambda_1_hat_n - lambda_2_hat_n)
+        alphas[n] = alpha
+
+    return alphas
 
 # step 3: Estimate copunct
 
