@@ -1,10 +1,13 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy as sp
 import cvxpy as cp
 import random
 
 #from typing import Callable
 from collections import defaultdict
+
+solvers = [cp.SCS, cp.MOSEK, cp.CVXOPT]
 
 # forward model
 def generate_gt(n_ref: int, eigenvalue_gap: int) -> dict:
@@ -95,26 +98,33 @@ def generate_measurements(num_meas: int, gt: dict, query_type: str = 'paq', thre
                 feat_matrix_n[:,:,i] = gamma_i * np.outer(a_i, a_i)
                 responses_n.append( gamma_i )
 
-        elif query_type == 'paired_comp':
+        elif query_type == 'paired_comparison':
             for i in range(num_meas):
-                ref = gt['refs'][n]
-                delta_i = np.random.uniform(low=-1, high=1, size=(2))
-                y_i = int((delta_i.T @ Sig_n @ delta_i - thresh) > 0)
- 
+                delta_i = np.random.normal(size=(2,2))
                 feat_matrix_n[:,:,i] = np.outer(delta_i[0] - delta_i[1], delta_i[0] - delta_i[1])
-                responses_n.append( y_i )
+
+                dist = np.trace(feat_matrix_n[:,:,i] @ Sig_n)
+
+                if dist > thresh:
+                    outcome = 1
+                else:
+                    outcome = -1
+
+                responses_n.append(outcome)
 
         elif query_type == 'triplet':
             for i in range(num_meas):
-                deltas_i = np.random.uniform(low=-1, high=1, size = (2,2))
-                dist1 = deltas_i[:,0].T @ Sig_n @ deltas_i[:,0]
-                dist2 = deltas_i[:,1].T @ Sig_n @ deltas_i[:,1]
-                
+                deltas_i = np.random.normal(size=(2,2))
                 feat_matrix_n[:,:,i] = 2*np.outer(deltas_i[0], deltas_i[2] - deltas_i[1]) + np.outer(deltas_i[1], deltas_i[1]) - np.outer(deltas_i[2], deltas_i[2])
-                if dist1 < dist2:
-                    responses_n.append( 1 )
+                
+                dist = np.trace(feat_matrix_n[:,:,i] @ Sig_n)
+
+                if dist > thresh:
+                    outcome = 1
                 else:
-                    responses_n.append( 0 )
+                    outcome = -1
+
+                responses_n.append(outcome)
 
         responses[n] = [feat_matrix_n, responses_n]
     return responses
@@ -125,25 +135,41 @@ def estimate_metric(responses: dict, thresh: float = 1, query_type: str = 'paq',
     est_out = {}
     n_ref = len(responses)
     for n in range(n_ref):
+        feat_matrix_n, labels = responses[n]
+        feat_flat_n = feat_matrix_n.reshape(4, -1)
+        num_meas = len(labels)
         if query_type == 'paq':
-            feat_matrix_n, y = responses[n]
-            feat_flat_n = feat_matrix_n.reshape(4, -1)
-
             Sig_hat = cp.Variable((2,2), PSD=True)
 
-            loss = cp.sum_squares( thresh - (cp.vec(Sig_hat) @ feat_flat_n) )
-            obj = cp.Minimize(loss)
-            prob = cp.Problem(obj)
+            loss = cp.sum_squares( thresh - (cp.vec(Sig_hat) @ feat_flat_n) ) / num_meas + 0.5 * cp.norm(Sig_hat, 'fro')
 
-            prob.solve(solver=cp.SCS, max_iters = max_iter)
+        elif query_type == 'paired_comparison':
+            Sig_hat = cp.Variable((2,2), PSD=True)
 
-            est = Sig_hat.value
+            loss = cp.sum(cp.pos( cp.multiply(labels, thresh - (cp.vec(Sig_hat) @ feat_flat_n)) ) ) / num_meas
 
-        # elif query_type == 'paired_comp':
-        #     est = estimate_metric_pc(responses, thresh)
         # elif query_type == 'triplet':
-        #     est = estimate_metric_triplet(responses)
-        est_out[n] = est
+        #     Sig_hat = cp.Variable((2,2), PSD=True)
+
+        #     loss = cp.sum(cp.pos(thresh - cp.multiply(labels, (cp.vec(Sig_hat) @ feat_flat_n)) ) ) / num_meas
+        #     obj = cp.Minimize(loss)
+        #     prob = cp.Problem(obj)
+
+        #     prob.solve(solver=cp.SCS, max_iters=max_iter)
+
+        #     est = Sig_hat.value
+
+        obj = cp.Minimize(loss)
+        prob = cp.Problem(obj)
+
+        solver_ct = 0
+        while prob.status != cp.OPTIMAL and solver_ct < len(solvers):
+            prob.solve(solver=solvers[solver_ct], max_iters = max_iter)
+
+        est = Sig_hat.value
+        
+        if prob.status == cp.OPTIMAL:
+            est_out[n] = est
     
     return est_out
 
@@ -153,14 +179,19 @@ def estimate_metric(responses: dict, thresh: float = 1, query_type: str = 'paq',
 # step 3: Estimate copunct
 
 
+num_ref = 25
+eigenvalue_gap = 10
+query_type = 'paired_comparison'
+num_meas = 5
+thresh = 0.1
 
-# gt_out = generate_gt(2, 10)
-# meas_out = generate_measurements(4, gt_out)
+gt_out = generate_gt(num_ref, eigenvalue_gap)
+meas_out = generate_measurements(num_meas, gt_out, query_type=query_type, thresh=thresh)
+est_out = estimate_metric(meas_out, query_type=query_type, thresh=thresh)
 
-# feat_matrix_n, _ = meas_out[0]
-# feat_flat_n = feat_matrix_n.reshape(4, -1)
-
-# est_out = estimate_metric(meas_out)
-
-# print(est_out[0])
-# print(gt_out['sigma_stars'][0])
+for i in range(num_ref):
+    print(sum(meas_out[i][-1]))
+    print(est_out[i])
+    print(sp.linalg.svdvals(gt_out['sigma_stars'][i]))
+    print(gt_out['sigma_stars'][i])
+    print('----')
