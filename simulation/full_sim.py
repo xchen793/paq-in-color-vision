@@ -7,6 +7,7 @@ import random
 #from typing import Callable
 from collections import defaultdict
 
+np.random.seed(2024)
 solvers = [cp.SCS, cp.CVXOPT, cp.MOSEK]
 
 # forward model
@@ -185,7 +186,7 @@ def compute_cones(est_out: dict, gt: dict, num_meas: int, cheat: bool = True, co
         u1_hat, u2_hat = eigenvectors[:, 0], eigenvectors[:, 1]
         
         if cheat:
-            tau = 3*np.linalg.norm(sigma_hat - gt['sigma_stars'][n], 2)
+            tau = np.linalg.norm(sigma_hat - gt['sigma_stars'][n], 2)
         else:
             tau = const * 2 / num_meas
 
@@ -196,13 +197,16 @@ def compute_cones(est_out: dict, gt: dict, num_meas: int, cheat: bool = True, co
     return alphas, major_axes
 
 # step 3: Estimate copunct
-def estimate_copunctal(alphas: dict, major_axes: dict, refs: list) -> np.ndarray:
+def estimate_copunctal(alphas: dict, major_axes: dict, refs: list, w_star: np.ndarray) -> np.ndarray:
     w = cp.Variable(2) # Decision variable for the copunctal point w
     constraints = []
     # Add constraints for each reference point and its corresponding cone
     for zn, u2_hat, alpha in zip(refs, major_axes, alphas):
         # Unpack the eigenvalue vector for readability
         u21_hat, u22_hat = u2_hat[0], u2_hat[1]
+
+        if np.sign(w_star[0] - zn[0]) != np.sign(u21_hat) or np.sign(w_star[1] - zn[1]) != np.sign(u22_hat):
+            continue
 
         cos_alpha_2 = np.cos(alpha / 2)
         sin_alpha_2 = np.sin(alpha / 2)
@@ -228,17 +232,19 @@ def estimate_copunctal(alphas: dict, major_axes: dict, refs: list) -> np.ndarray
 
 num_ref = 25
 eigenvalue_gap = 10
-query_type = 'paq'
-num_meas = 2
+query_type = 'triplet'
+num_meas = 75
 thresh = 5
-const = 50
+const = 1000
 
 gt_out = generate_gt(num_ref, eigenvalue_gap)
 meas_out = generate_measurements(num_meas, gt_out, query_type=query_type, thresh=thresh)
 est_out = estimate_metric(meas_out, query_type=query_type, thresh=thresh)
 angles_out, major_axes_out = compute_cones(est_out, gt_out, num_meas, const=const)
-w_hat = estimate_copunctal(angles_out, major_axes_out, gt_out['refs'])
+
 w_star = gt_out['w_star']
+w_hat = estimate_copunctal(angles_out, major_axes_out, gt_out['refs'], w_star)
+
 print(f'w_hat: {w_hat} | w_star: {w_star}')
 err = np.linalg.norm(w_hat - w_star)**2
 
