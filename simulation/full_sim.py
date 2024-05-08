@@ -161,8 +161,8 @@ def estimate_metric(responses: dict, thresh: float = 1, query_type: str = 'paq',
             prob.solve(solver=solvers[ct], max_iters = max_iter)
             ct += 1
         
-        # print(ct)
-        # print(prob.status)
+        print(f'Tried {ct + 1} solvers, status {prob.status}')
+        
         est = Sig_hat.value
         est_out[n] = est
     
@@ -170,10 +170,10 @@ def estimate_metric(responses: dict, thresh: float = 1, query_type: str = 'paq',
 
 
 # step 2: compute cones
-def compute_cones(est_out: dict, gt: dict, num_meas: int, cheat: bool = True, const: float = 10) -> dict:
-    alphas = {}
-    n_ref = len(est_out)
+def compute_cones(est_out: dict, gt: dict, num_meas: int, cheat: bool = True, const: float = 10) -> tuple[list, list]:
     alphas = []
+    major_axes = []
+
     for n, sigma_hat in est_out.items():
         # compute svd of Sig_hat
         eigenvalues, eigenvectors = np.linalg.eigh(sigma_hat)
@@ -185,31 +185,61 @@ def compute_cones(est_out: dict, gt: dict, num_meas: int, cheat: bool = True, co
         u1_hat, u2_hat = eigenvectors[:, 0], eigenvectors[:, 1]
         
         if cheat:
-            tau = np.linalg.norm(sigma_hat - gt['sigma_stars'][n], 2)
+            tau = 3*np.linalg.norm(sigma_hat - gt['sigma_stars'][n], 2)
         else:
             tau = const * 2 / num_meas
 
         alpha = 2 * tau / np.abs(lambda_1_hat_n - lambda_2_hat_n)
-        alphas[n] = alpha
+        alphas.append(alpha)
+        major_axes.append(u2_hat)
 
-    return alphas
+    return alphas, major_axes
 
 # step 3: Estimate copunct
+def estimate_copunctal(alphas: dict, major_axes: dict, refs: list) -> np.ndarray:
+    w = cp.Variable(2) # Decision variable for the copunctal point w
+    constraints = []
+    # Add constraints for each reference point and its corresponding cone
+    for zn, u2_hat, alpha in zip(refs, major_axes, alphas):
+        # Unpack the eigenvalue vector for readability
+        u21_hat, u22_hat = u2_hat[0], u2_hat[1]
 
+        cos_alpha_2 = np.cos(alpha / 2)
+        sin_alpha_2 = np.sin(alpha / 2)
+
+        # Upper side of the cone
+        constraints.append((w[1] - zn[1]) * (cos_alpha_2 * u21_hat - sin_alpha_2 * u22_hat) <= (w[0] - zn[0]) * (sin_alpha_2 * u21_hat + cos_alpha_2 * u22_hat))
+        # Lower side of the cone
+        constraints.append((w[1] - zn[1]) * (cos_alpha_2 * u21_hat + sin_alpha_2 * u22_hat) >= (w[0] - zn[0]) * (-u21_hat * sin_alpha_2 + u22_hat * cos_alpha_2))
+
+    objective = cp.Minimize(0)
+
+    problem = cp.Problem(objective, constraints)
+    problem.solve(solver=cp.ECOS) 
+    # ? Try CVSOPT, SCS and ECOS as solver. 
+    # ECOS performs better in num_refs experiments, but it fails in threshold experiment
+    # CVSOPT is better in threshold experiment, but it fails in eigenvalue gap experiment
+    # SCS can run all experiments
+
+    # Print the solution
+    # print("The estimated copunctal point w is:", w.value)
+    # print("The true copunctal point w is:", w_star)
+    return w.value
 
 num_ref = 25
 eigenvalue_gap = 10
-query_type = 'paired_comparison'
-num_meas = 100
+query_type = 'paq'
+num_meas = 2
 thresh = 5
+const = 50
 
 gt_out = generate_gt(num_ref, eigenvalue_gap)
 meas_out = generate_measurements(num_meas, gt_out, query_type=query_type, thresh=thresh)
 est_out = estimate_metric(meas_out, query_type=query_type, thresh=thresh)
+angles_out, major_axes_out = compute_cones(est_out, gt_out, num_meas, const=const)
+w_hat = estimate_copunctal(angles_out, major_axes_out, gt_out['refs'])
+w_star = gt_out['w_star']
+print(f'w_hat: {w_hat} | w_star: {w_star}')
+err = np.linalg.norm(w_hat - w_star)**2
 
-for i in range(num_ref):
-    print(sum(meas_out[i][-1]))
-    print(est_out[i])
-    print(sp.linalg.svdvals(gt_out['sigma_stars'][i]))
-    print(gt_out['sigma_stars'][i])
-    print('----')
+print(f'sq err: {err}')
