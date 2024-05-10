@@ -1,21 +1,80 @@
-// Define a customizable path through RGB space as an array of [R, G, B] points
-const colorPath = [
-    [0, 0, 0],     // Black
-    [255, 0, 0],   // Red
-    [255, 255, 0], // Yellow
-    [0, 255, 0],   // Green
-    [0, 255, 255], // Cyan
-    [0, 0, 255],   // Blue
-    [255, 0, 255], // Magenta
-    [255, 255, 255]// White
+// start colors = fixed colors in RGB 
+const fixedColors = [
+    'rgb(255, 0, 0)', // red (0.64, 0.33, 21.26)
+    'rgb(0, 255, 0)', // green (0.3, 0.6, 71.52)
+    'rgb(0, 0, 255)', // blue (0.15, 0.06, 7.22)
+    'rgb(255, 255, 0)', // yellow (0.42, 0.51, 92.78)
+    'rgb(255, 0, 255)'  // magenta (0.321, 0.154, 28.48)
 ];
+
+// end colors
+const endColors = [
+    {x: 0.171, y: 0.0, Y: 1}, // tritan copunctal point
+    {x: 0.747, y: 0.253, Y: 1}, // protan copunctal point
+    {x: 1.080, y: -0.800, Y: 1} // deutan copunctal point
+];
+
+function parseRGB(rgbString) {
+    const regex = /^rgb\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})\)$/;
+    const match = rgbString.match(regex);
+    return match ? [parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10)] : null;
+}
+
+function RGBToxyY(rgbString) {
+    const rgb = parseRGB(rgbString);
+    if (!rgb) {
+        console.error("Invalid RGB format");
+        return null;
+    }
+
+    // Step 1: Convert RGB from 0-255 to 0-1
+    let r = rgb[0] / 255;
+    let g = rgb[1] / 255;
+    let b = rgb[2] / 255;
+
+    // Step 2: Apply reverse gamma correction (sRGB)
+    r = (r > 0.04045) ? Math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
+    g = (g > 0.04045) ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
+    b = (b > 0.04045) ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
+
+    // Step 3: Apply the RGB to XYZ transformation matrix for sRGB D65
+    const X = r * 0.4124564 + g * 0.3575761 + b * 0.1804375;
+    const Y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
+    const Z = r * 0.0193339 + g * 0.1191920 + b * 0.9503041;
+
+    // Convert to xyY
+    const sum = X + Y + Z;
+    const x = sum === 0 ? 0 : X / sum;
+    const y = sum === 0 ? 0 : Y / sum;
+    return {x, y, Y};
+
+}
+
+const fixedColorsxyY = fixedColors.map(color => RGBToxyY(color));
+console.log(fixedColorsxyY);
+
+const colorPaths = [];
+
+endColors.forEach(endxyY => {
+    fixedColorsxyY.forEach(startxyY => {
+        colorPaths.push({ startxyY, endxyY });
+    });
+});
+
+console.log(colorPaths);
+
+// Global variable to keep track of the current page
+let currentPage = 1;  
+let numPage = 15;
+let totalsliderValue = 500;
 
 
 document.addEventListener('DOMContentLoaded', function() {
-    setupEventListeners(); 
+    currentPage = getPageNumberFromURL() || 1;
+    history.replaceState({ page: currentPage }, `Page ${currentPage}`, `survey_page${currentPage}`);
+    setupEventListeners();
+    updateUIForPage(currentPage);
 });
-
-
 
 function setupEventListeners() {
     const slider = document.getElementById("color-slider");
@@ -23,8 +82,17 @@ function setupEventListeners() {
     const noMatchButton = document.getElementById("no-match");
     const nextPageButton = document.getElementById("next-page");
 
+    // const slider = document.getElementById(`color-slider-${page}`);
+    // const colorDisplay = document.getElementById(`color-display-${page}`);
+    // const submitButton = document.getElementById(`submit-color-${page}`);
+    // const noMatchButton = document.getElementById(`no-match-${page}`);
+    // const nextPageButton = document.querySelector("[onclick^='window.location.href']");
+
+
     if (slider) {
-        slider.addEventListener("input", updateColor);
+        slider.addEventListener("input", function(){
+            updateColor(slider.value);
+        });
     } else {
         console.error("Slider not found.");
     }
@@ -46,32 +114,53 @@ function setupEventListeners() {
     }
 
     if (nextPageButton) {
-        nextPageButton.addEventListener("click", goToNextPage);
+        nextPageButton.addEventListener("click", function(){
+            goToNextPage();
+        });
     } else {
         console.error("Next page button not found.");
     }
 }
 
-// Auxiliary Function 1: Parse RGB string 
-function parseRGB(rgbString) {
-    // Regular expression to extract numbers from the rgb string
-    const regex = /^rgb\(\s*(\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})\s*\)$/;
-    const match = rgbString.match(regex);
-    
-    const red = parseInt(match[1], 10)
-    const green = parseInt(match[2], 10)
-    const blue = parseInt(match[3], 10)
+function getPageNumberFromURL() {
+    const path = window.location.pathname.split('/');
+    const pageSegment = path[path.length - 1];
+    const match = pageSegment.match(/^survey_page(\d+)$/);
+    return match ? parseInt(match[1], 10) : null;
+}
 
-    if (match) {
-        return {
-            r: red, // Convert the first captured group to an integer (Red)
-            g: green, // Convert the second captured group to an integer (Green)
-            b: blue  // Convert the third captured group to an integer (Blue)
-        };
-    } else {
-        console.error("Invalid RGB format:", rgbString);
-        return null; // Return null if the format doesn't match
+function goToNextPage() {
+    currentPage = currentPage % numPage + 1; // Loop from page 5 back to 1
+    const nextPageUrl = `survey_page${currentPage}`;
+    history.pushState({ page: currentPage }, `Page ${currentPage}`, nextPageUrl);
+    updateUIForPage(currentPage);
+}
+
+function updateUIForPage(page) {
+    // Set the fixed color based on the current page
+    const fixedColorDisplay = document.getElementById("fixed-color-display");
+    if (fixedColorDisplay) {
+        fixedColorDisplay.style.backgroundColor = fixedColors[((page - 1) % 5)];
     }
+    // Reset the slider value to 0 for a fresh start on each page
+    const slider = document.getElementById("color-slider");
+    if (slider) {
+        slider.value = 0;  // Reset slider to the start
+        updateColor(0);  // Update the color based on the reset slider value
+    } else {
+        console.error("Slider not found.");
+    }
+
+    // Assuming there are elements to update per page, otherwise implement needed changes
+    const colorDisplay = document.getElementById("color-display");
+    updateColor(0);  // Initialize with a default position of the slider
+}
+
+function updateColor(sliderValue) {
+    const colorDisplay = document.getElementById("color-display");
+    let t = sliderValue / totalsliderValue;  // Normalize slider value to 0-1
+    let { R, G, B } = interpolateColor(t, currentPage);
+    colorDisplay.style.backgroundColor = `rgb(${R}, ${G}, ${B})`;
 }
 
 //Auxiliary Function 2: Get Page Id
@@ -81,34 +170,48 @@ function getPageId() {
     return pageId;
 }
 
-function submitColor(actionType) {
-    const colorDisplay = document.getElementById("color-display");
-    const fixedColorDisplay = document.getElementById("fixed-color-display");
-    const xyData = colorDisplay.getAttribute('data-xy'); // Ensure this is set correctly
 
-    const rgbString = window.getComputedStyle(fixedColorDisplay).backgroundColor;
-    const rgb = parseRGB(rgbString);
-
-    if (!rgb) {
-        console.error("Failed to parse RGB. Submission aborted.");
-        return;
+function computeQueryVector(startxyY, endxyY) {
+    if (!startxyY || !endxyY) {
+        console.error('Invalid start or end xyY data.');
+        return null;
     }
+    const dx = endxyY.x - startxyY.x;
+    const dy = endxyY.y - startxyY.y;
+    const dY = endxyY.Y - startxyY.Y;
+    const mag = Math.sqrt(dx * dx + dy * dy + dY * dY);
+    return {
+        x: dx / mag,
+        y: dy / mag,
+        Y: dY / mag
+    };
+}
 
-    const fixedColorXyY = rgbToXyY(rgb.r, rgb.g, rgb.b);
-    const pageId = getPageId();
+function submitColor(actionType) {
+    const slider = document.getElementById("color-slider");
 
-    let data; // Use let to allow modification
+    let currentPath = colorPaths[currentPage - 1];
+    let query_vec = computeQueryVector(currentPath.startxyY, currentPath.endxyY);
+
+    let fixedColorxyY = currentPath.startxyY;
+    let endColorxyY = currentPath.endxyY;
+    let pageId = getPageId();
+
     if (actionType === 'noMatch') {
         data = { 
             pageId: pageId, 
-            xyData: null, 
-            fixedColor: fixedColorXyY 
+            query_vec: query_vec,
+            gamma: null, 
+            fixedColor: fixedColorxyY,
+            endColor: endColorxyY
         };
     } else {
         data = {
             pageId: pageId,
-            xyData: JSON.parse(xyData || '{}'), // Safely parse xyData or default to {}
-            fixedColor: fixedColorXyY
+            query_vec: query_vec,
+            gamma: slider.value / totalsliderValue,
+            fixedColor: fixedColorxyY,
+            endColor: endColorxyY
         };
     }
 
@@ -122,98 +225,62 @@ function submitColor(actionType) {
     .catch(error => console.error('Error submitting response:', error));
 }
 
-// This is the mapping !!!
-function interpolateColor(path, sliderPosition) {
-    // Determine the interval in the path
-    const numIntervals = path.length - 1;
-    const intervalSize = 100 / numIntervals;
-    const index = Math.min(Math.floor(sliderPosition / intervalSize), numIntervals - 1);
+/////////////////////////////////////  Converting functions xyY -> XYZ -> RGB /////////////////////////////////////
+function xyYtoXYZ(x, y, Y) {
+    if (y === 0) return { X: 0, Y: 0, Z: 0 };
 
-    // Compute the local position within the interval
-    const localPosition = (sliderPosition % intervalSize) / intervalSize;
-
-    // Interpolate between the current and next point in the path
-    const startPoint = path[index];
-    const endPoint = path[index + 1];
-    const interpolatedColor = startPoint.map((start, i) => {
-        const end = endPoint[i];
-        return Math.round(start + (end - start) * localPosition);
-    });
-
-    return interpolatedColor;
+    let X = (x * Y) / y;
+    let Z = ((1 - x - y) * Y) / y;
+    return { X, Y, Z };
 }
 
-function rgbToXyY(r, g, b) {
-    // Normalize RGB values to the range 0-1
-    r = r / 255;
-    g = g / 255;
-    b = b / 255;
-    // First, inverse the gamma correction (sRGB)
-    r = (r > 0.04045) ? Math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
-    g = (g > 0.04045) ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
-    b = (b > 0.04045) ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
+function XYZtoRGB(X, Y, Z) {
+    // Matrix transformation from XYZ to linear RGB
+    let R =  3.2406*X - 1.5372*Y - 0.4986*Z;
+    let G = -0.9689*X + 1.8758*Y + 0.0415*Z;
+    let B =  0.0557*X - 0.2040*Y + 1.0570*Z;
 
-    // Apply wide gamut RGB D65 conversion coefficients
-    const X = r * 0.4124564 + g * 0.3575761 + b * 0.1804375;
-    const Y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
-    const Z = r * 0.0193339 + g * 0.1191920 + b * 0.9503041;
+    // Apply gamma correction and clamp the values between 0 and 1
+    return {
+        R: clampRGB(R),
+        G: clampRGB(G),
+        B: clampRGB(B)
+    };
+}
 
-    // Convert to xyY
-    const sum = X + Y + Z;
-    const x = sum === 0 ? 0 : X / sum;
-    const y = sum === 0 ? 0 : Y / sum;
-    return {x, y, Y};
+function clampRGB(value) {
+    let linear = Math.max(0, Math.min(1, value));  // Clamp between 0 and 1
+    if (linear <= 0.0031308)
+        return 12.92 * linear;
+    else
+        return 1.055 * Math.pow(linear, 1/2.4) - 0.055;
 }
 
 
-function updateColor() {
-    const slider = document.getElementById("color-slider");
-    const colorDisplay = document.getElementById("color-display");
-    if (slider && colorDisplay) {
-        const sliderValue = slider.value;
-        const newColor = interpolateColor(colorPath, sliderValue);
-        colorDisplay.style.backgroundColor = `rgb(${newColor[0]}, ${newColor[1]}, ${newColor[2]})`;
-        const xyY = rgbToXyY(newColor[0] / 255, newColor[1] / 255, newColor[2] / 255);
-        colorDisplay.setAttribute('data-xy', JSON.stringify(xyY));
-    }
+
+function interpolateColor(t, page) {
+    const path = colorPaths[page - 1];
+    const startx = path.startxyY.x;
+    const starty = path.startxyY.y;
+    const startY = path.startxyY.Y;
+    const endx = path.endxyY.x;
+    const endy = path.endxyY.y;
+    const endY = path.endxyY.Y;
+    
+    let x = startx + (endx - startx) * t;  // Linear interpolation from startX to endX
+    let y = starty + (endy - starty) * t;  // Linear interpolation from startY to endY
+    let Y = startY + (endY - startY) * t;  // Constant luminance
+
+    // Convert to XYZ, then to RGB
+    let { X, Y: newY, Z } = xyYtoXYZ(x, y, Y);
+    let { R, G, B } = XYZtoRGB(X, newY, Z);
+
+    // Convert 0-1 RGB to 0-255 for CSS usage
+    return {
+        R: R * 255,
+        G: G * 255,
+        B: B * 255
+    };
 }
-
-
-function goToNextPage() {
-    console.log("Current Page:", currentPage); // This will show you what is being captured as currentPage
-    var pathname = window.location.pathname;
-    var currentPage = pathname.split('/').pop();
-
-    if (currentPage === '') {
-        currentPage = 'test_ui';  // Adjust if your root goes to a different page
-    }
-    switch(currentPage) {
-        case 'test_ui':
-            window.location.href = '/survey_page1';
-            break;
-        case 'survey_page1':
-            window.location.href = '/survey_page2';
-            break;
-        case 'survey_page2':
-            window.location.href = '/survey_page3';
-            break;
-        case 'survey_page3':
-            window.location.href = '/survey_page4';
-            break;
-        case 'survey_page4':
-            window.location.href = '/survey_page5';
-            break;
-        case 'survey_page5':
-            window.location.href = '/thankyou';
-            break;
-        default:
-            alert('You are at the end of the survey.');
-            break;
-    }
-}
-
-// Initialize with default color
-updateColor();
-
 
 

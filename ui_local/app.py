@@ -27,12 +27,13 @@ def render_page(page_name):
 def submit_color():
     try:
         data = request.get_json()
-        print("Received data:", data)
 
         # Extracting individual components from the data
-        xyData = data.get('xyData')
         fixedColor = data.get('fixedColor')
-        pageId = data.get('pageId')  # This should be sent from the frontend
+        pageId = data.get('pageId')  
+        query_vec = data.get('query_vec')  
+        gamma = data.get('gamma')  
+        endColor = data.get('endColor') 
 
         # File path for JSON storage
         file_path = 'color_data.json'
@@ -41,8 +42,10 @@ def submit_color():
                 try:
                     existing_data = json.load(file)
                     existing_data[pageId] = {
-                        'xyData': xyData,
-                        'fixedColor': fixedColor
+                        'fixedColor': fixedColor,
+                        'query_vec': query_vec,
+                        'gamma': gamma,
+                        'endColor': endColor
                     }
                     file.seek(0)
                     json.dump(existing_data, file, indent=4)
@@ -53,8 +56,10 @@ def submit_color():
             with open(file_path, 'w') as file:
                 json.dump({
                     pageId: {
-                        'xyData': xyData,
-                        'fixedColor': fixedColor
+                        'fixedColor': fixedColor,
+                        'query_vec': query_vec,
+                        'gamma': gamma,
+                        'endColor': endColor
                     }
                 }, file, indent=4)
 

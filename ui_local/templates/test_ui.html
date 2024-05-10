@@ -1,60 +1,100 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RGB Color Path Slider</title>
-    <style>
-        .container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px;
-        }
-        #fixed-color-display {
-            width: 100px;
-            height: 100px;
-            background-color: rgb(255, 0, 0); /* Fixed color example */
-            margin-right: 20px;
-        }
-        #controls {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-        }
-        #color-display {
-            width: 100px;
-            height: 100px;
-            margin-top: 20px;
-            background-color: rgb(0, 0, 0); /* Dynamic color display initialization */
-        }
-        input[type="range"] {
-            width: 200px; /* Adjust this value to make the slider shorter */
-            margin-left: 0; /* Centers the slider within the controls div */
-        }
-        .button-group {
-            display: flex;
-            justify-content: flex-end; /* Aligns buttons to the right */
-            margin-top: auto; /* Pushes the button group to the bottom */
-        }
-    </style>
-</head>
-<body>
-    <h2>RGB Color Path Slider</h2>
-    <div class="container">
-        <div id="fixed-color-display"></div> <!-- Fixed color display -->
-        <div id="controls">
-            Adjust Color: <input type="range" min="0" max="100" value="0" id="color-slider"><br>
-            <div id="color-display"></div> <!-- Shows the color changing as slider is adjusted -->
-            <div class="button-group">
-                <button id="submit-color">Submit Color</button>
-                <button id="no-match">No Match</button>
-                <button id="next-page">Next</button>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>RGB Color Path Slider</title>
+        <style>
+            body {
+                margin: 0;
+                padding: 20px 0;
+                font-family: Arial, sans-serif;
+                text-align: center;
+            }
+            .container {
+                width: 100%; /* Full width */
+                margin: 0 auto;
+                padding: 20px;
+            }
+            .color-displays {
+                display: flex;
+                justify-content: center;
+                gap: 50px; /* Reduced gap to bring colors closer */
+                margin-bottom: 20px;
+            }
+            #fixed-color-display, #color-display {
+                width: 100px;
+                height: 100px;
+            }
+            #fixed-color-display {
+                background-color: rgb(255, 0, 0); /* Fixed color */
+            }
+            #color-display {
+                background-color: rgb(0, 0, 0); /* Dynamic color display initialization */
+            }
+            .slider-container {
+                width: 80%;
+                min-width: 960px; /* Adjusted minimum width */
+                margin: 20px auto;
+            }
+            input[type="range"] {
+                width: 100%;
+                -webkit-appearance: none;
+                background: #ddd;
+                height: 8px;
+                border-radius: 5px;
+            }
+            input[type="range"]::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 20px;
+                height: 20px;
+                background: #4CAF50;
+                cursor: pointer;
+                border-radius: 50%;
+            }
+            input[type="range"]::-moz-range-thumb {
+                width: 20px;
+                height: 20px;
+                background: #4CAF50;
+                cursor: pointer;
+                border-radius: 50%;
+            }
+            .button-group button {
+                padding: 10px 20px;
+                font-size: 16px;
+                min-width: 100px;
+                cursor: pointer;
+                margin: 5px;
+                border: none;
+                border-radius: 5px;
+                background-color: #4CAF50;
+                color: white;
+                transition: background-color 0.3s;
+            }
+            .button-group button:hover {
+                background-color: #367c39;
+            }
+        </style>
+    </head>
+    <body>
+        <h2>RGB Color Path Slider</h2>
+            <div class="container">
+                <div class="color-displays">
+                    <div id="fixed-color-display"></div>
+                    <div id="color-display"></div>
+                </div>
+                <div class="slider-container">
+                    Adjust Color and stop once you see two colors different. </label> <input type="range" min="0" max="100" value="0" id="color-slider"><br>
+                </div>
+                <div class="button-group">
+                    <button id="submit-color">Submit Color</button>
+                    <button id="no-match">No Match</button>
+                    <button id="next-page">Next</button>
+                </div>
             </div>
-        </div>
-    </div>
 
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 
-</body>
+    </body>
 </html>
