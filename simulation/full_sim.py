@@ -5,8 +5,8 @@ import cvxpy as cp
 import os
 import json
 import random
+import argparse
 
-#from typing import Callable
 from collections import defaultdict
 
 from utils import *
@@ -49,17 +49,27 @@ def run_one_exp() -> None:
     print(w_star)
     print(compute_err(w_star, w_hat, normalize=normalize, squared=square))
 
-def run_sweep() -> None:
-    num_ref = 25
-    eigenvalue_gap = 10
-    queries = ['paired_comparison', 'triplet', 'paq', 'paq_noisy_low', 'paq_noisy_med', 'paq_noisy_high']
-    meas_v = [3, 5, 10, 25, 50, 75, 100, 125, 150, 200, 250]
-    thresh = 5
-    const_start = 1
-    normalize = False
-    square = False
+def run_sweep(config: dict, plot_only: bool = False) -> str:
 
-    fname = 'results_baseline_nonnorm.json'
+    num_ref = config['num_ref']
+    eigenvalue_gap = config['eigenvalue_gap']
+    queries = config['queries']
+    num_meas = config['num_meas']
+    thresh = config['thresh']
+    const_start = config['const_start']
+    normalize = config['normalize']
+    square = config['square']
+
+    sweep_type = config['sweep_type']
+    if sweep_type == 'meas':
+        fname = 'meas_sweep.json'
+        sweep_range = num_meas
+    elif sweep_type == 'gap':
+        fname = 'gap_sweep.json'
+        sweep_range = eigenvalue_gap
+
+    if plot_only:
+        return fname
 
     if os.path.isfile(fname):
         with open(fname, 'r') as f:
@@ -72,7 +82,7 @@ def run_sweep() -> None:
         if query_type in res or query_type not in VIABLE_QUERY_TYPES:
             continue
 
-        res_query = defaultdict(list) # maps num_meas -> [avg err, std err, [trial err]]
+        res_query = defaultdict(list) 
 
         if 'low' in query_type:
             noise_frac = 0.1
@@ -83,11 +93,16 @@ def run_sweep() -> None:
         else:
             noise_frac = 0
 
-        for num_meas in meas_v:
-            if 'paq' not in query_type and num_meas < 10:
-                continue
+        for sweep_var in sweep_range:
+            if sweep_type == 'meas':
+                num_meas = sweep_var
+                if 'paq' not in query_type and num_meas < 10:
+                    continue
+                print(f'Processing {query_type} at {num_meas} measurements')
+            elif sweep_type == 'gap':
+                eigenvalue_gap = sweep_var
+                print(f'Processing {query_type} at {eigenvalue_gap} eig gap')
 
-            print(f'Processing {query_type} at {num_meas} measurements')
             err_mc = []
 
             for mc in range(NUM_TRIALS):
@@ -133,15 +148,30 @@ def run_sweep() -> None:
                 
                 err_mc.append(err_best)
 
-            res_query[num_meas] = [np.average(err_mc), np.std(err_mc) / NUM_TRIALS, err_mc]
+            res_query[sweep_var] = [np.average(err_mc), np.std(err_mc) / NUM_TRIALS, err_mc]
 
         res[query_type] = res_query
         with open(fname, 'w') as f:
             json.dump(res, f, indent=4)
-                
+
+    return fname
+
 
 if __name__ == '__main__':
-    #run_one_exp()
-    #run_sweep()
-    fname = 'results_baseline_nonnorm.json'
-    plot_figure(fname)
+    parser = argparse.ArgumentParser(description="Run different types of sweeps.")
+
+    parser.add_argument("config", type=str, help="Filepath to JSON configuration file")
+    parser.add_argument("plot", type=bool, help = "Bypass sweep, plot figure", default=False)
+    
+    args = parser.parse_args()
+
+    with open(args.config, 'r') as file:
+        config_data = json.load(file)
+
+    fname = run_sweep(config_data, plot_only=args.plot)
+    if config_data['sweep_type'] == "meas":
+        save_name = 'meas_sweep.pdf'
+    elif config_data['sweep_type'] == 'gap':
+        save_name = 'gap_sweep.pdf'
+
+    plot_figure(fname, save_name, config_data['sweep_type'])

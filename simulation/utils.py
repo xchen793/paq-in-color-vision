@@ -257,7 +257,7 @@ def compute_err(w_star: np.ndarray, w_hat: np.ndarray, normalize: bool = True, s
         err = err**2
     return err
 
-def get_label(query_name):
+def get_label(query_name: str) -> str:
     if query_name == 'paq':
         return 'PAQ (noiseless)'
     elif query_name == 'paq_noisy_low':
@@ -270,27 +270,35 @@ def get_label(query_name):
         return 'Paired comparison (noiseless)'
     elif query_name == 'triplet':
         return 'Triplet (noiseless)'
+    
+def get_x_axis_label(sweep_type: str) -> str:
+    if sweep_type == 'meas':
+        return 'Number of responses per reference'
+    elif sweep_type == 'gap':
+        return 'Eigenvalue gap'
+    elif sweep_type == 'ref':
+        return 'Number of reference points'
 
-def plot_figure(fname):
+def plot_figure(fname: str, save_name: str, sweep_type: str) -> None:
     with open(fname, 'r') as f:
         res = json.load(f)
 
     plt.figure(0)
     for query_type, results in res.items():
-        meas_v = list(results.keys())
-        meas_v = sorted([int(i) for i in meas_v])
+        sweep_param = list(results.keys())
+        sweep_param = sorted([int(i) for i in sweep_param])
         results = {int(k):v for k, v in results.items()}
 
-        err_mean = [results[n][0] for n in meas_v]
-        err_std = [results[n][1] for n in meas_v]
+        err_mean = [results[n][0] for n in sweep_param]
+        err_std = [results[n][1] for n in sweep_param]
 
         err_std_low = [err_mean[i] - err_std[i] for i in range(len(err_mean))]
         err_std_high = [err_mean[i] + err_std[i] for i in range(len(err_mean))]
 
-        plt.loglog(meas_v, err_mean, label = get_label(query_type))
-        plt.fill_between(meas_v, err_std_low, err_std_high, alpha = 0.5)
-        plt.xlabel('Number of responses per reference')
-        plt.ylabel('Normalized square error')
+        plt.loglog(sweep_param, err_mean, label = get_label(query_type))
+        plt.fill_between(sweep_param, err_std_low, err_std_high, alpha = 0.5)
+        plt.xlabel(get_x_axis_label(sweep_type))
+        plt.ylabel('Copunctal point estimation error')
     plt.legend()
-    plt.savefig('results_sweep_num_meas.pdf')
+    plt.savefig(save_name)
     plt.show()
