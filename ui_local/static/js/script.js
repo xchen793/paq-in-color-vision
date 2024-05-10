@@ -9,7 +9,7 @@ const fixedColors = [
 
 // end colors
 const endColors = [
-    {x: 0.171, y: 0.0, Y: 1}, // tritan copunctal point
+    {x: 0.171, y: 0.001, Y: 1}, // tritan copunctal point
     {x: 0.747, y: 0.253, Y: 1}, // protan copunctal point
     {x: 1.080, y: -0.800, Y: 1} // deutan copunctal point
 ];
@@ -66,18 +66,10 @@ console.log(colorPaths);
 // Global variable to keep track of the current page
 let currentPage = 1;  
 let numPage = 15;
-let totalsliderValue = 500;
+let totalsliderValue = 100;
 
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Check if we are on the intro page
-    if (document.getElementById('startButton')) {
-        document.getElementById('startButton').addEventListener('click', function() {
-            // Redirect to the first survey page
-            window.location.href = 'survey_page1.html';
-        });
-    }
-
     // Check if the currentPage variable is defined
     if (typeof currentPage !== 'undefined') {
         currentPage = getPageNumberFromURL() || 1;
@@ -93,13 +85,6 @@ function setupEventListeners() {
     const submitButton = document.getElementById("submit-color");
     const noMatchButton = document.getElementById("no-match");
     const nextPageButton = document.getElementById("next-page");
-
-    // const slider = document.getElementById(`color-slider-${page}`);
-    // const colorDisplay = document.getElementById(`color-display-${page}`);
-    // const submitButton = document.getElementById(`submit-color-${page}`);
-    // const noMatchButton = document.getElementById(`no-match-${page}`);
-    // const nextPageButton = document.querySelector("[onclick^='window.location.href']");
-
 
     if (slider) {
         slider.addEventListener("input", function(){
@@ -204,11 +189,28 @@ function computeQueryVector(startxyY, endxyY) {
     };
 }
 
+function computeDistance(startxyY, endxyY) {
+    if (!startxyY || !endxyY) {
+        console.error('Invalid start or end xyY data.');
+        return null;  // Return null to indicate an error.
+    }
+    // Calculate the differences in each coordinate
+    const dx = endxyY.x - startxyY.x;
+    const dy = endxyY.y - startxyY.y;
+    const dY = endxyY.Y - startxyY.Y;
+    // Compute the Euclidean distance using the Pythagorean theorem
+    const distance = Math.sqrt(dx * dx + dy * dy + dY * dY);
+    return distance;
+}
+
+
 function submitColor(actionType) {
     const slider = document.getElementById("color-slider");
 
     let currentPath = colorPaths[currentPage - 1];
     let query_vec = computeQueryVector(currentPath.startxyY, currentPath.endxyY);
+    let distance = computeDistance(currentPath.startxyY, currentPath.endxyY);
+    let gamma = distance * slider.value / totalsliderValue;
 
     let fixedColorxyY = currentPath.startxyY;
     let endColorxyY = currentPath.endxyY;
@@ -226,7 +228,7 @@ function submitColor(actionType) {
         data = {
             pageId: pageId,
             query_vec: query_vec,
-            gamma: slider.value / totalsliderValue,
+            gamma: gamma,
             fixedColor: fixedColorxyY,
             endColor: endColorxyY
         };
@@ -273,24 +275,25 @@ function clampRGB(value) {
         return 1.055 * Math.pow(linear, 1/2.4) - 0.055;
 }
 
-
-
 function interpolateColor(t, page) {
     const path = colorPaths[page - 1];
-    const startx = path.startxyY.x;
-    const starty = path.startxyY.y;
-    const startY = path.startxyY.Y;
-    const endx = path.endxyY.x;
-    const endy = path.endxyY.y;
-    const endY = path.endxyY.Y;
-    
+    const startx = path.endxyY.x;
+    const starty = path.endxyY.y;
+    const startY = path.endxyY.Y;
+    const endx = path.startxyY.x;
+    const endy = path.startxyY.y;
+    const endY = path.startxyY.Y;
+    console.log(startx, endx)
+    console.log(path)
     let x = startx + (endx - startx) * t;  // Linear interpolation from startX to endX
     let y = starty + (endy - starty) * t;  // Linear interpolation from startY to endY
-    let Y = startY + (endY - startY) * t;  // Constant luminance
+    let Y = startY + (endY - startY) * t;  
 
     // Convert to XYZ, then to RGB
     let { X, Y: newY, Z } = xyYtoXYZ(x, y, Y);
     let { R, G, B } = XYZtoRGB(X, newY, Z);
+
+    console.log( x, y, Y);
 
     // Convert 0-1 RGB to 0-255 for CSS usage
     return {
