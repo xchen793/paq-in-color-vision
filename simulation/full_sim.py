@@ -43,7 +43,7 @@ def run_one_exp() -> None:
     for a in angles_out:
         print(a*180/np.pi)
 
-    w_hat, status = estimate_copunctal(angles_out, major_axes_out, gt_out['refs'], w_star=w_star)
+    w_hat, status, num_fails = estimate_copunctal(angles_out, major_axes_out, gt_out['refs'], w_star=w_star)
 
     print(w_hat)
     print(w_star)
@@ -55,6 +55,7 @@ def run_sweep(config: dict, plot_only: bool = False) -> str:
     eigenvalue_gap = config['eigenvalue_gap']
     queries = config['queries']
     num_meas = config['num_meas']
+    print(num_meas)
     thresh = config['thresh']
     const_start = config['const_start']
     normalize = config['normalize']
@@ -80,7 +81,7 @@ def run_sweep(config: dict, plot_only: bool = False) -> str:
     else:
         res = defaultdict(dict)
 
-
+    print(res)
     for query_type in queries:
         if query_type in res or query_type not in VIABLE_QUERY_TYPES:
             continue
@@ -110,6 +111,7 @@ def run_sweep(config: dict, plot_only: bool = False) -> str:
                 print(f'Processing {query_type} w/ {num_ref} references')
 
             err_mc = []
+            num_fails_mc = []
 
             for mc in range(NUM_TRIALS):
                 # Generate ground truth values
@@ -124,37 +126,42 @@ def run_sweep(config: dict, plot_only: bool = False) -> str:
                 const = const_start
                 w_star = gt_out['w_star']
                 angles_out, major_axes_out = compute_cones(est_out, gt_out, num_meas, const=const)
-                w_hat, status = estimate_copunctal(angles_out, major_axes_out, gt_out['refs'], w_star=w_star)
+                w_hat, status, num_fails = estimate_copunctal(angles_out, major_axes_out, gt_out['refs'], w_star=w_star)
 
                 if w_hat is not None:
                     err = compute_err(w_star, w_hat, normalize=normalize, squared=square)
                     err_best = err
+                    num_fails_best = num_fails
                 else: 
                     err_best = 1e9
+                    num_fails_best = 0
 
                 ct = 0
                 stop_sign = 0
-                while ct < MAX_RETRIES and stop_sign < STOP_THRESH: #status != cp.OPTIMAL and 
+                while ct < MAX_RETRIES and stop_sign < STOP_THRESH: 
                     if const == 1:
                         const += 9
                     else:
                         const += 10
                     angles_out, major_axes_out = compute_cones(est_out, gt_out, num_meas, const=const)
-                    w_hat, status = estimate_copunctal(angles_out, major_axes_out, gt_out['refs'], w_star = w_star)
+                    w_hat, status, num_fails = estimate_copunctal(angles_out, major_axes_out, gt_out['refs'], w_star = w_star)
                     ct += 1
 
                     if w_hat is not None:
                         err = compute_err(w_star, w_hat, normalize=normalize, squared=square)
                         if err < err_best:
                             err_best = err
+                            num_fails_best = num_fails
                             stop_sign = 0
                         else:
                             stop_sign += 1
 
                 
                 err_mc.append(err_best)
+                num_fails_mc.append(num_fails_best)
+                print(f'Best performance had {num_fails_best} / {2*num_ref} violated constraints')
 
-            res_query[sweep_var] = [np.average(err_mc), np.std(err_mc) / NUM_TRIALS, err_mc]
+            res_query[sweep_var] = [np.average(err_mc), np.std(err_mc) / NUM_TRIALS, err_mc, num_fails_mc]
 
         res[query_type] = res_query
         with open(fname, 'w') as f:
@@ -173,8 +180,6 @@ if __name__ == '__main__':
 
     with open(args.config, 'r') as file:
         config_data = json.load(file)
-
-    print(args.plot)
 
     fname = run_sweep(config_data, plot_only=args.plot)
     if config_data['sweep_type'] == "meas":

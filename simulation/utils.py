@@ -219,19 +219,38 @@ def feas_check(w_star: np.ndarray, zn: np.ndarray, u2_hat: np.ndarray, alpha: fl
     return (cond_one and cond_two)
 
 # step 3: Estimate copunct
-def estimate_copunctal(alphas: dict, major_axes: dict, refs: list, w_star: np.ndarray = None) -> tuple[np.ndarray, str]:
+def estimate_copunctal(alphas: dict, major_axes: dict, refs: list, w_star: np.ndarray = None) -> tuple[np.ndarray, str, int]:
     w = cp.Variable(2) # Decision variable for the copunctal point w
     constraints = []
+    num_fails = 0
+
     # Add constraints for each reference point and its corresponding cone
     for zn, u2_hat, alpha in zip(refs, major_axes, alphas):
+        alpha = min(2*alpha, np.pi)
         # Unpack the eigenvalue vector for readability
         u21_hat, u22_hat = u2_hat[0], u2_hat[1]
 
         cos_alpha_2 = np.cos(alpha / 2)
         sin_alpha_2 = np.sin(alpha / 2)
 
+        # print(u2_hat)
+        # true_dir = (w_star - zn) / np.linalg.norm(zn - w_star)
+        # print(true_dir)
+
+
         if w_star is not None and not feas_check(w_star, zn, u2_hat, alpha):
-            continue
+            if not feas_check(w_star, zn, -u2_hat, alpha):
+                # print(f'Error cone alpha: {alpha} | dot product: {np.dot(u2_hat, true_dir)}')
+                # print(feas_check(w_star, zn, u2_hat, np.pi))
+                # print('failed')
+                # print('-----')
+                num_fails += 2
+                continue
+            else:
+                #print('Use neg')
+                u21_hat *= -1
+                u22_hat += -1
+        #print('-----')
 
         # Upper side of the cone
         constraints.append((w[1] - zn[1]) * (cos_alpha_2 * u21_hat - sin_alpha_2 * u22_hat) <= (w[0] - zn[0]) * (sin_alpha_2 * u21_hat + cos_alpha_2 * u22_hat))
@@ -246,7 +265,7 @@ def estimate_copunctal(alphas: dict, major_axes: dict, refs: list, w_star: np.nd
         problem.solve(solver=solvers[ct])
         ct += 1
 
-    return w.value, problem.status
+    return w.value, problem.status, num_fails
 
 def compute_err(w_star: np.ndarray, w_hat: np.ndarray, normalize: bool = True, squared: bool = True) -> float:
     
