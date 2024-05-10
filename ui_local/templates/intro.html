@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Vision Survey Introduction</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f4f4f9;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container {
+            width: 80%;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background-color: #5c67f2;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #4a54e1;
+        }
+    </style>
+     <script>
+        function startSurvey() {
+            window.location.href = '/survey?page=1';  // Start the survey on page 1
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome to the Color Vision Survey</h1>
+        <p>This survey is designed to understand how people perceive different colors. Your participation will help us to improve color accessibility and design choices in various applications.</p>
+        <p>Please click the start button below to begin the survey. Thank you for your participation and valuable contributions!</p>
+        <button onclick="startSurvey()">Start Survey</button>
+    </div>
+</body>
+</html>

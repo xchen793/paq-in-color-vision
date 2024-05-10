@@ -11,17 +11,18 @@ app = Flask(__name__)
 
 @app.route('/')
 def index():
-    # Call the external Python script to get RGB directions and starting color
-    data = get_color.getRandomColor()
-    return render_template('test_ui.html', data = data)
+    return render_template('intro.html')
 
-@app.route('/<page_name>')
-def render_page(page_name):
-    try:
-        return render_template(f'{page_name}.html')
-    except Exception as e:
-        return f"Error loading the page: {str(e)}", 404
+@app.route('/survey')
+def survey():
+    # You can use a query parameter to determine the page number or state
+    page_number = request.args.get('page', default=1, type=int)
+    # You could add logic here to handle different page numbers or states
+    return render_template('test_ui.html', page_number=page_number)
 
+@app.route('/thankyou')
+def thankyou():
+    return render_template('thankyou.html')
 
 @app.route('/submit-color', methods=['POST'])
 def submit_color():

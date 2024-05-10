@@ -70,11 +70,23 @@ let totalsliderValue = 500;
 
 
 document.addEventListener('DOMContentLoaded', function() {
-    currentPage = getPageNumberFromURL() || 1;
-    history.replaceState({ page: currentPage }, `Page ${currentPage}`, `survey_page${currentPage}`);
-    setupEventListeners();
-    updateUIForPage(currentPage);
+    // Check if we are on the intro page
+    if (document.getElementById('startButton')) {
+        document.getElementById('startButton').addEventListener('click', function() {
+            // Redirect to the first survey page
+            window.location.href = 'survey_page1.html';
+        });
+    }
+
+    // Check if the currentPage variable is defined
+    if (typeof currentPage !== 'undefined') {
+        currentPage = getPageNumberFromURL() || 1;
+        history.replaceState({ page: currentPage }, `Page ${currentPage}`, `survey_page${currentPage}`);
+        setupEventListeners();
+        updateUIForPage(currentPage);
+    }
 });
+
 
 function setupEventListeners() {
     const slider = document.getElementById("color-slider");
@@ -130,10 +142,15 @@ function getPageNumberFromURL() {
 }
 
 function goToNextPage() {
-    currentPage = currentPage % numPage + 1; // Loop from page 5 back to 1
-    const nextPageUrl = `survey_page${currentPage}`;
-    history.pushState({ page: currentPage }, `Page ${currentPage}`, nextPageUrl);
-    updateUIForPage(currentPage);
+    if (currentPage >= numPage){
+        window.location.href = '/thankyou';
+    } else{
+        currentPage = currentPage + 1; // Loop from page 15 back to 1
+        const nextPageUrl = `survey_page${currentPage}`;
+        history.pushState({ page: currentPage }, `Page ${currentPage}`, nextPageUrl);
+        updateUIForPage(currentPage);
+    }
+
 }
 
 function updateUIForPage(page) {
