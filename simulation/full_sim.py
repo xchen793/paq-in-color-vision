@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy as sp
 import cvxpy as cp
+import os
+import json
 import random
 
 #from typing import Callable
@@ -81,7 +83,7 @@ def generate_gt(n_ref: int, eigenvalue_gap: int) -> dict:
 #       For triplets, its 2 vectors that are compared against the reference
 
 
-def generate_measurements(num_meas: int, gt: dict, query_type: str = 'paq', thresh: float = 1) -> dict:
+def generate_measurements(num_meas: int, gt: dict, query_type: str = 'paq', thresh: float = 1, noise_frac: float = 0.5) -> dict:
     # iterate over each reference
     num_ref = len(gt['refs'])
     responses = {}
@@ -95,7 +97,7 @@ def generate_measurements(num_meas: int, gt: dict, query_type: str = 'paq', thre
                 a_i = np.random.normal(size=(2))
                 quad_i = a_i.T @ Sig_n @ a_i
                 if 'noisy' in query_type:
-                    gamma_i = (thresh + np.random.uniform(low=-thresh, high=thresh)) / quad_i
+                    gamma_i = (thresh + np.random.uniform(low=-noise_frac*thresh, high=noise_frac*thresh)) / quad_i
                 else:
                     gamma_i = thresh / quad_i
 
@@ -140,20 +142,26 @@ def estimate_metric(responses: dict, thresh: float = 1, query_type: str = 'paq',
     n_ref = len(responses)
     for n in range(n_ref):
         feat_matrix_n, labels = responses[n]
-        feat_flat_n = feat_matrix_n.reshape(4, -1)
+        #feat_flat_n = feat_matrix_n.reshape(4, -1)
         num_meas = len(labels)
 
         # estimation
         Sig_hat = cp.Variable((2,2), PSD=True)
+        loss = 0
+        for i in range(num_meas):
+            feat_matrix = feat_matrix_n[:,:,i]
+            if 'paq' in query_type:
+                loss += (thresh - cp.trace(feat_matrix @ Sig_hat))**2 / num_meas
 
-        if 'paq' in query_type:
-            loss = cp.sum_squares( thresh - (cp.vec(Sig_hat) @ feat_flat_n) ) / num_meas #+ 0.1 * cp.norm(Sig_hat, 'fro')
+                #loss = cp.sum_squares( thresh - (cp.vec(Sig_hat) @ feat_flat_n) ) / num_meas #+ 0.1 * cp.norm(Sig_hat, 'fro')
 
-        elif query_type == 'triplet':
-            loss = cp.sum(cp.pos( thresh - cp.multiply(labels, (cp.vec(Sig_hat) @ feat_flat_n)) ) ) / num_meas #+ 0.1 * cp.norm(Sig_hat, 'fro')
+            elif query_type == 'triplet':
+                loss += cp.pos(1 - cp.multiply(labels[i], cp.trace(feat_matrix @ Sig_hat) - thresh)) / num_meas
+                #loss = cp.sum(cp.pos( 1 - cp.multiply(labels, (cp.vec(Sig_hat) @ feat_flat_n)) ) ) / num_meas #+ 0.1 * cp.norm(Sig_hat, 'fro')
 
-        elif query_type == 'paired_comparison':
-            loss = cp.sum(cp.pos( thresh - cp.multiply(labels, (cp.vec(Sig_hat) @ feat_flat_n))) ) / num_meas #+ 0.1 * cp.norm(Sig_hat, 'fro')
+            elif query_type == 'paired_comparison':
+                loss += cp.pos(1 - cp.multiply(labels[i], cp.trace(feat_matrix @ Sig_hat) - thresh)) / num_meas
+                #loss = cp.sum(cp.pos( thresh - cp.multiply(labels, (cp.vec(Sig_hat) @ feat_flat_n))) ) / num_meas #+ 0.1 * cp.norm(Sig_hat, 'fro')
 
 
         obj = cp.Minimize(loss)
@@ -193,7 +201,7 @@ def compute_cones(est_out: dict, gt: dict, num_meas: int, cheat: bool = False, c
         else:
             tau = const * 2 / num_meas
 
-        alpha = 2 * tau / np.abs(lambda_1_hat_n - lambda_2_hat_n)
+        alpha = 4 * tau / np.abs(lambda_1_hat_n - lambda_2_hat_n)
         alphas.append(alpha)
         major_axes.append(u2_hat)
 
@@ -240,35 +248,183 @@ def estimate_copunctal(alphas: dict, major_axes: dict, refs: list, w_star: np.nd
 
     return w.value, problem.status
 
+def compute_err(w_star: np.ndarray, w_hat: np.ndarray, normalize: bool = True, squared: bool = True) -> float:
+    
+    err = np.linalg.norm(w_star - w_hat)
+    if normalize:
+        err /= np.linalg.norm(w_star)
+    if squared:
+        err = err**2
+    return err
 
-MAX_RETRIES = 50
-TRIALS = 20
+MAX_RETRIES = 100
+STOP_THRESH = 3
+NUM_TRIALS = 20
+VIABLE_QUERY_TYPES = ['paq', 'paq_noisy_low', 'paq_noisy_med', 'paq_noisy_high', 'paired_comparison', 'triplet']
 
-num_ref = 25
-eigenvalue_gap = 10
-query_type = 'triplet'
-num_meas = 3
-thresh = 5
-const_start = 10
+def run_one_exp() -> None:
+    num_ref = 25
+    eigenvalue_gap = 10
 
-for mc in range(TRIALS):
+    num_meas = 20
+    query_type = 'triplet'
     gt_out = generate_gt(num_ref, eigenvalue_gap)
-    meas_out = generate_measurements(num_meas, gt_out, query_type=query_type, thresh=thresh)
+    thresh = 5
+    noise_frac = 0
+    normalize = False
+    square = False
+
+    # From GT values, generate measurements
+    meas_out = generate_measurements(num_meas, gt_out, query_type=query_type, thresh=thresh, noise_frac=noise_frac)
+    print(meas_out)
+    # Use queries to estimate metrics
     est_out = estimate_metric(meas_out, query_type=query_type, thresh=thresh)
 
-    const = const_start
+    for k, v in est_out.items():
+        print(f'n = {k} | sig_hat = {v}')
+
+    const = 10
     w_star = gt_out['w_star']
     angles_out, major_axes_out = compute_cones(est_out, gt_out, num_meas, const=const)
+    for a in angles_out:
+        print(a*180/np.pi)
+
     w_hat, status = estimate_copunctal(angles_out, major_axes_out, gt_out['refs'], w_star=w_star)
 
-    ct = 0
-    while status != cp.OPTIMAL and ct < MAX_RETRIES:
-        const += 10
-        angles_out, major_axes_out = compute_cones(est_out, gt_out, num_meas, const=const)
-        w_hat, status = estimate_copunctal(angles_out, major_axes_out, gt_out['refs'], w_star = w_star)
-        ct += 1
-    print(const)
+    print(w_hat)
+    print(w_star)
+    print(compute_err(w_star, w_hat, normalize=normalize, squared=square))
 
-    
-    print(f'w_hat: {w_hat} | status: {status}')
-    print('-------------')
+def run_sweep() -> None:
+    num_ref = 25
+    eigenvalue_gap = 10
+    queries = ['paired_comparison', 'triplet', 'paq', 'paq_noisy_low', 'paq_noisy_med', 'paq_noisy_high']
+    meas_v = [3, 5, 10, 25, 50, 75, 100, 125, 150, 200, 250]
+    thresh = 5
+    const_start = 1
+    normalize = False
+    square = False
+
+    fname = 'results_baseline_nonnorm.json'
+
+    if os.path.isfile(fname):
+        with open(fname, 'r') as f:
+            res = json.load(f)
+    else:
+        res = defaultdict(dict)
+
+
+    for query_type in queries:
+        if query_type in res or query_type not in VIABLE_QUERY_TYPES:
+            continue
+
+        res_query = defaultdict(list) # maps num_meas -> [avg err, std err, [trial err]]
+
+        if 'low' in query_type:
+            noise_frac = 0.1
+        elif 'med' in query_type:
+            noise_frac = 0.5
+        elif 'high' in query_type:
+            noise_frac = 1
+        else:
+            noise_frac = 0
+
+        for num_meas in meas_v:
+            if 'paq' not in query_type and num_meas < 10:
+                continue
+
+            print(f'Processing {query_type} at {num_meas} measurements')
+            err_mc = []
+
+            for mc in range(NUM_TRIALS):
+                # Generate ground truth values
+                gt_out = generate_gt(num_ref, eigenvalue_gap)
+
+                # From GT values, generate measurements
+                meas_out = generate_measurements(num_meas, gt_out, query_type=query_type, thresh=thresh, noise_frac=noise_frac)
+
+                # Use queries to estimate metrics
+                est_out = estimate_metric(meas_out, query_type=query_type, thresh=thresh)
+
+                const = const_start
+                w_star = gt_out['w_star']
+                angles_out, major_axes_out = compute_cones(est_out, gt_out, num_meas, const=const)
+                w_hat, status = estimate_copunctal(angles_out, major_axes_out, gt_out['refs'], w_star=w_star)
+
+                if w_hat is not None:
+                    err = compute_err(w_star, w_hat, normalize=normalize, squared=square)
+                    err_best = err
+                else: 
+                    err_best = 1e9
+
+                ct = 0
+                stop_sign = 0
+                while ct < MAX_RETRIES and stop_sign < STOP_THRESH: #status != cp.OPTIMAL and 
+                    if const == 1:
+                        const += 9
+                    else:
+                        const += 10
+                    angles_out, major_axes_out = compute_cones(est_out, gt_out, num_meas, const=const)
+                    w_hat, status = estimate_copunctal(angles_out, major_axes_out, gt_out['refs'], w_star = w_star)
+                    ct += 1
+
+                    if w_hat is not None:
+                        err = compute_err(w_star, w_hat, normalize=normalize, squared=square)
+                        if err < err_best:
+                            err_best = err
+                            stop_sign = 0
+                        else:
+                            stop_sign += 1
+
+                
+                err_mc.append(err_best)
+
+            res_query[num_meas] = [np.average(err_mc), np.std(err_mc) / NUM_TRIALS, err_mc]
+
+        res[query_type] = res_query
+        with open(fname, 'w') as f:
+            json.dump(res, f, indent=4)
+                
+def get_label(query_name):
+    if query_name == 'paq':
+        return 'PAQ (noiseless)'
+    elif query_name == 'paq_noisy_low':
+        return 'PAQ (low noise)'
+    elif query_name == 'paq_noisy_med':
+        return 'PAQ (medium noise)'
+    elif query_name == 'paq_noisy_high':
+        return 'PAQ (high noise)'
+    elif query_name == 'paired_comparison':
+        return 'Paired comparison (noiseless)'
+    elif query_name == 'triplet':
+        return 'Triplet (noiseless)'
+
+def plot_figure(fname):
+    with open(fname, 'r') as f:
+        res = json.load(f)
+
+    plt.figure(0)
+    for query_type, results in res.items():
+        meas_v = list(results.keys())
+        meas_v = sorted([int(i) for i in meas_v])
+        results = {int(k):v for k, v in results.items()}
+
+        err_mean = [results[n][0] for n in meas_v]
+        err_std = [results[n][1] for n in meas_v]
+
+        err_std_low = [err_mean[i] - err_std[i] for i in range(len(err_mean))]
+        err_std_high = [err_mean[i] + err_std[i] for i in range(len(err_mean))]
+
+        plt.loglog(meas_v, err_mean, label = get_label(query_type))
+        plt.fill_between(meas_v, err_std_low, err_std_high, alpha = 0.5)
+        plt.xlabel('Number of responses per reference')
+        plt.ylabel('Normalized square error')
+    plt.legend()
+    plt.savefig('results_sweep_num_meas.pdf')
+    plt.show()
+
+if __name__ == '__main__':
+    #run_one_exp()
+    #run_sweep()
+    fname = 'results_baseline_nonnorm.json'
+    plot_figure(fname)
