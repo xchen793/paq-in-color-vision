@@ -67,6 +67,9 @@ def run_sweep(config: dict, plot_only: bool = False) -> str:
     elif sweep_type == 'gap':
         fname = 'gap_sweep.json'
         sweep_range = eigenvalue_gap
+    elif sweep_type == 'ref':
+        fname = 'ref_sweep.json'
+        sweep_range = num_ref
 
     if plot_only:
         return fname
@@ -102,6 +105,9 @@ def run_sweep(config: dict, plot_only: bool = False) -> str:
             elif sweep_type == 'gap':
                 eigenvalue_gap = sweep_var
                 print(f'Processing {query_type} at {eigenvalue_gap} eig gap')
+            elif sweep_type == 'ref':
+                num_ref = sweep_var
+                print(f'Processing {query_type} w/ {num_ref} references')
 
             err_mc = []
 
@@ -161,17 +167,21 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Run different types of sweeps.")
 
     parser.add_argument("config", type=str, help="Filepath to JSON configuration file")
-    parser.add_argument("plot", type=bool, help = "Bypass sweep, plot figure", default=False)
+    parser.add_argument("-plot", action='store_true', help = "Bypass sweep, plot figure")
     
     args = parser.parse_args()
 
     with open(args.config, 'r') as file:
         config_data = json.load(file)
 
+    print(args.plot)
+
     fname = run_sweep(config_data, plot_only=args.plot)
     if config_data['sweep_type'] == "meas":
         save_name = 'meas_sweep.pdf'
     elif config_data['sweep_type'] == 'gap':
         save_name = 'gap_sweep.pdf'
+    elif config_data['sweep_type'] == 'ref':
+        save_name = 'ref_sweep.pdf'
 
     plot_figure(fname, save_name, config_data['sweep_type'])
