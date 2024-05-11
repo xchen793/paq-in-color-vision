@@ -11,28 +11,30 @@ app = Flask(__name__)
 
 @app.route('/')
 def index():
-    # Call the external Python script to get RGB directions and starting color
-    data = get_color.getRandomColor()
-    return render_template('test_ui.html', data = data)
+    return render_template('intro.html')
 
-@app.route('/<page_name>')
-def render_page(page_name):
-    try:
-        return render_template(f'{page_name}.html')
-    except Exception as e:
-        return f"Error loading the page: {str(e)}", 404
+@app.route('/survey')
+def survey():
+    # You can use a query parameter to determine the page number or state
+    page_number = request.args.get('page', default=1, type=int)
+    # You could add logic here to handle different page numbers or states
+    return render_template('test_ui.html', page_number=page_number)
 
+@app.route('/thankyou')
+def thankyou():
+    return render_template('thankyou.html')
 
 @app.route('/submit-color', methods=['POST'])
 def submit_color():
     try:
         data = request.get_json()
-        print("Received data:", data)
 
         # Extracting individual components from the data
-        xyData = data.get('xyData')
         fixedColor = data.get('fixedColor')
-        pageId = data.get('pageId')  # This should be sent from the frontend
+        pageId = data.get('pageId')  
+        query_vec = data.get('query_vec')  
+        gamma = data.get('gamma')  
+        endColor = data.get('endColor') 
 
         # File path for JSON storage
         file_path = 'color_data.json'
@@ -41,8 +43,10 @@ def submit_color():
                 try:
                     existing_data = json.load(file)
                     existing_data[pageId] = {
-                        'xyData': xyData,
-                        'fixedColor': fixedColor
+                        'fixedColor': fixedColor,
+                        'query_vec': query_vec,
+                        'gamma': gamma,
+                        'endColor': endColor
                     }
                     file.seek(0)
                     json.dump(existing_data, file, indent=4)
@@ -53,8 +57,10 @@ def submit_color():
             with open(file_path, 'w') as file:
                 json.dump({
                     pageId: {
-                        'xyData': xyData,
-                        'fixedColor': fixedColor
+                        'fixedColor': fixedColor,
+                        'query_vec': query_vec,
+                        'gamma': gamma,
+                        'endColor': endColor
                     }
                 }, file, indent=4)
 
