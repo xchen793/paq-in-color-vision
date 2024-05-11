@@ -174,7 +174,11 @@ def solve(n_ref, s, eigenvalue_gap, area_part1, area_part2):
         objective = cp.Minimize(0)
 
         problem = cp.Problem(objective, constraints)
-        problem.solve(solver=cp.ECOS) 
+        try:
+            problem.solve(solver=cp.ECOS)
+        except cp.error.SolverError:
+            print("Trying with SCS solver.")
+            problem.solve(solver=cp.SCS)
         # ? Try CVSOPT, SCS and ECOS as solver. 
         # ECOS performs better in num_refs experiments, but it fails in threshold experiment
         # CVSOPT is better in threshold experiment, but it fails in eigenvalue gap experiment
@@ -195,7 +199,7 @@ def solve(n_ref, s, eigenvalue_gap, area_part1, area_part2):
     print(f"Infeasible solutions: {infeas_num}/20")
     print("The avg distance between the estimated and true copunctal points over 20 trials is: ", avg_distance)
    
-    return avg_distance, infeas_num
+    return avg_distance
 
 ss = np.logspace(0, 6, num=100) 
 eigenvalue_gaps = np.linspace(0, 10, num=100, endpoint=False) #[0,10)
@@ -203,84 +207,92 @@ area_part1 = 0.8 * 1   # Area of (0.2, 1) x (0, 1)
 area_part2 = 0.2 * 0.8 # Area of (0, 0.2) x (0.2, 1)
 
 
-# different number of reference points 
-print("Test different number of reference points.")
+# # different number of reference points 
+# print("Test different number of reference points.")
 
-s = 10
-eigenvalue_gap = 4
-avg_distance_list_1 = []
-
-# Define the range and number of points
-start = 1  # Starting point (in log scale)
-stop = np.log10(600)  # Ending point (in log scale), log10 of 800
-num_points = 12  # Number of points
-
-# Generate sample points using logspace
-n_refs = np.logspace(start, stop, num=num_points, dtype=int)
-
-# Ensure unique values and sorted order, also removing any duplicates if exist
-n_refs = sorted(set(n_refs))
-# n_refs = [1, 2, 3, 4, 5,  10, 20, 40, 80, 140, 200, 320, 450, 600, 800]
-
-for n_ref in n_refs:
-    print(f"The number of reference points is {n_ref}.")
-    avg_distance_list_1.append(solve(n_ref, s, eigenvalue_gap, area_part1, area_part2))
-print(avg_distance_list_1)
-plt.figure(figsize=(10, 5))
-plt.loglog(n_refs, avg_distance_list_1, marker='o', markersize = 4, linestyle='-')  # Line plot with log-scale on x-axis
-plt.legend(fontsize=12)
-plt.grid(True, which='both', linestyle='--', linewidth=0.5)
-plt.xlabel('number of reference points')
-plt.ylabel('Log of averaged estimation error')
-plt.title('Estimation error vs. number of reference points')
-plt.grid(True)
-plt.savefig('est_error_vs_number_refpoints.png', dpi=500, bbox_inches='tight')
-
-# # different thresholds (i.e., operator norm bound for metrics) 
-# print("Test different thresholds.")
-
-
-# n_ref = 25
+# s = 10
 # eigenvalue_gap = 4
-# avg_distance_list_2 = []
-# ss = np.logspace(0, 5, num=50)
+# avg_distance_list_1 = []
 
-# for s in ss:
-#     print(f"The scaling factor is {s}.")
-#     avg_distance_list_2.append(solve(n_ref, s, eigenvalue_gap, area_part1, area_part2))
-    
+# # Define the ranges and number of points for each segment
+# # More points between 1 and 10
+# start_1 = np.log10(1)   # This is 10^0 = 1
+# stop_1 = np.log10(10)   # This is 10^1 = 10
+# num_points_1 = 20       # Number of points in this segment
+
+# # Fewer points between 10 and 100
+# start_2 = np.log10(10)  # This is 10^1 = 10
+# stop_2 = np.log10(1000)  # This is 10^2 = 100
+# num_points_2 = 20        # Number of points in this segment
+
+
+# # Generate sample points using logspace for each segment
+# points_segment_1 = np.logspace(start_1, stop_1, num=num_points_1, endpoint=False)  # Exclude endpoint to avoid duplication at 10
+# points_segment_2 = np.logspace(start_2, stop_2, num=num_points_2)
+
+# # Combine the arrays and sort (although they should already be in order)
+# n_refs = np.concatenate((points_segment_1, points_segment_2))
+# n_refs = np.unique(n_refs).astype(int)  # Ensure unique values and convert to integer
+
+# n_refs = sorted(set(n_refs))
+
+# for n_ref in n_refs:
+#     print(f"The number of reference points is {n_ref}.")
+#     avg_distance_list_1.append(solve(n_ref, s, eigenvalue_gap, area_part1, area_part2))
+# print(avg_distance_list_1)
 # plt.figure(figsize=(10, 5))
-# plt.loglog(ss, avg_distance_list_2, marker='o', markersize = 4, linestyle='-')  # Line plot with log-scale on x-axis
+# plt.loglog(n_refs, avg_distance_list_1, marker='o', markersize = 4, linestyle='-')  # Line plot with log-scale on x-axis
 # plt.legend(fontsize=12)
 # plt.grid(True, which='both', linestyle='--', linewidth=0.5)
-# plt.xlabel(r'Log of $\sigma$')
-# plt.ylabel('Log of averaged estimation error')
-# plt.title('Estimation error vs. threshold')
+# plt.xlabel('Number of reference points')
+# plt.ylabel('Averaged estimation error')
+# plt.title('Estimation error vs. number of reference points')
 # plt.grid(True)
-# plt.savefig('est_error_vs_thresholds.png', dpi=500, bbox_inches='tight')
+# plt.savefig('est_error_vs_number_refpoints.png', dpi=500, bbox_inches='tight')
 
-# different eigenvalue gaps 
-# fix the set of the reference points and copunctal point
-print("Test different eigenvalue gaps.")
+# different thresholds (i.e., operator norm bound for metrics) 
+print("Test different thresholds.")
 
-s = 10
 n_ref = 25
-avg_distance_list_3 = []
+eigenvalue_gap = 4
+avg_distance_list_2 = []
+ss = np.logspace(0, 5, num=50)
 
-for eigenvalue_gap in eigenvalue_gaps:
-    print(f"The eigenvalue gap is {eigenvalue_gap}.")
-    avg_distance_list_3.append(solve(n_ref, s, eigenvalue_gap, area_part1, area_part2))
+for s in ss:
+    print(f"The scaling factor is {s}.")
+    avg_distance_list_2.append(solve(n_ref, s, eigenvalue_gap, area_part1, area_part2))
     
 plt.figure(figsize=(10, 5))
-plt.semilogy(eigenvalue_gaps, avg_distance_list_3, marker='o', markersize = 4, linestyle='-')  # Line plot with log-scale on x-axis
-print(eigenvalue_gaps)
-print(avg_distance_list_3)
-input()
+plt.loglog(ss, avg_distance_list_2, marker='o', markersize = 4, linestyle='-')  # Line plot with log-scale on x-axis
 plt.legend(fontsize=12)
 plt.grid(True, which='both', linestyle='--', linewidth=0.5)
-plt.xlabel('Eigenvalue gap')
-plt.ylabel('Log of averaged estimation error')
-plt.title('Estimation error vs. eigenvalue gaps')
+plt.xlabel(r'Thresholds $\sigma$')
+plt.ylabel('Averaged estimation error')
+plt.title('Estimation error vs. Thresholds')
 plt.grid(True)
-plt.savefig('est_error_vs_eiggap.png', dpi=500, bbox_inches='tight')
+plt.savefig('est_error_vs_thresholds.png', dpi=500, bbox_inches='tight')
+
+
+# print("Test different eigenvalue gaps.")
+
+# s = 10
+# n_ref = 25
+# avg_distance_list_3 = []
+
+# for eigenvalue_gap in eigenvalue_gaps:
+#     print(f"The eigenvalue gap is {eigenvalue_gap}.")
+#     avg_distance_list_3.append(solve(n_ref, s, eigenvalue_gap, area_part1, area_part2))
+    
+# plt.figure(figsize=(10, 5))
+# plt.semilogy(eigenvalue_gaps, avg_distance_list_3, marker='o', markersize = 4, linestyle='-')  # Line plot with log-scale on x-axis
+# print(eigenvalue_gaps)
+# print(avg_distance_list_3)
+# input()
+# plt.legend(fontsize=12)
+# plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+# plt.xlabel('Eigenvalue gap')
+# plt.ylabel('Averaged estimation error')
+# plt.title('Estimation error vs. eigenvalue gaps')
+# plt.grid(True)
+# plt.savefig('est_error_vs_eiggap.png', dpi=500, bbox_inches='tight')
 

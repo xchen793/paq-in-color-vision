@@ -53,15 +53,6 @@ for _ in range(n_refs):  # generate reference points
         x = np.random.uniform(0, 0.2)
         y = np.random.uniform(0.2, 1)
     refs.append((x, y))
-
-    # fig, ax = plt.subplots()
-    # ax.scatter(*zip(*refs),  label='$\mathcal{z}$', color='blue')  
-    # ax.add_patch(plt.Rectangle((0,0), 0.15, 0.15, edgecolor='red', fill=None, linestyle='--'))
-    # ax.plot(w_star[0], w_star[1], '^', color='red', label='w*', markersize=10)
-    # ax.set_xlabel('X')
-    # ax.set_ylabel('Y')
-    # ax.set_title(f'True copunctal point and {n_ref} reference points')
-    # fig.savefig(f'refpt_wstar_generation_plot_{i}.png', dpi=500, bbox_inches='tight')
         
 
 ############  Part 2: Get u2 star, compute u1 star  ############
@@ -163,7 +154,11 @@ for eigenvalue_gap in eigenvalue_gaps:
         objective = cp.Minimize(0)
 
         problem = cp.Problem(objective, constraints)
-        problem.solve(solver=cp.ECOS) 
+        try:
+            problem.solve(solver=cp.ECOS)
+        except cp.error.SolverError:
+            print("Trying with SCS solver.")
+            problem.solve(solver=cp.SCS)
 
         if problem.status == cp.OPTIMAL:
             distance = np.sqrt(np.sum((w.value - w_star)**2))
@@ -187,7 +182,7 @@ input()
 plt.legend(fontsize=12)
 plt.grid(True, which='both', linestyle='--', linewidth=0.5)
 plt.xlabel('Eigenvalue gap')
-plt.ylabel('Log of averaged estimation error')
+plt.ylabel('Averaged estimation error')
 plt.title('Estimation error vs. eigenvalue gaps')
 plt.grid(True)
 plt.savefig('est_error_vs_eiggap.png', dpi=500, bbox_inches='tight')

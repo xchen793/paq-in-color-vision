@@ -1,19 +1,88 @@
-// start colors = fixed colors in RGB 
+
+const luminance = 0.5;
+const targetDistance = 0.05;
+const numberOfDirections = 20;
+const angleIncrement = 360 / numberOfDirections;
+const max = 1; //slider threshold
+const min = 0.7; //slider threshold
+const numAddedpoints = 10;
+
+let currentPage = 1;  
+
+let totalsliderValue = 100;
+
+
+let threshold = 0.9;
+let currentxyY = {x: 0, y: 0, Y: luminance};  
+
+// fixed colors in RGB for path 1
 const fixedColors = [
-    'rgb(255, 0, 0)', // red (0.64, 0.33, 21.26)
-    'rgb(0, 255, 0)', // green (0.3, 0.6, 71.52)
-    'rgb(0, 0, 255)', // blue (0.15, 0.06, 7.22)
-    'rgb(255, 255, 0)', // yellow (0.42, 0.51, 92.78)
-    'rgb(255, 0, 255)'  // magenta (0.321, 0.154, 28.48)
+    {x: 0.25, y: 0.34, Y: luminance}, 
+    {x:0.29, y: 0.40, Y: luminance}, 
+    {x: 0.37, y: 0.40, Y: luminance},
+    {x: 0.35, y: 0.35, Y: luminance} 
 ];
 
-// end colors
-const endColors = [
-    {x: 0.171, y: 0.001, Y: 1}, // tritan copunctal point
-    {x: 0.747, y: 0.253, Y: 1}, // protan copunctal point
-    {x: 1.080, y: -0.800, Y: 1} // deutan copunctal point
-];
 
+// Convert degrees to radians
+function degreesToRadians(degrees) {
+    return degrees * (Math.PI / 180);
+}
+
+// Calculate point on direction vector at a certain distance
+function calculatePointOnDirection(x, y, angle, distance) {
+    const angleRadians = degreesToRadians(angle);
+    const newX = x + distance * Math.cos(angleRadians);
+    const newY = y + distance * Math.sin(angleRadians);
+    return { newX, newY };
+
+}
+
+//endpoints 
+const endpoints = [];
+
+fixedColors.forEach((color, index) => {
+    for (let i = 0; i < numberOfDirections; i++) {
+        const angle = i * angleIncrement;
+        const { newX, newY } = calculatePointOnDirection(color.x, color.y, angle, targetDistance);
+        endpoints.push({ x: newX, y: newY, Y: luminance});
+    }
+});
+
+const duplicatedfixedColors = [];
+
+fixedColors.forEach(color => {
+    for (let i = 0; i < numberOfDirections; i++) {
+        duplicatedfixedColors.push({ ...color }); // Use the spread operator to copy the object
+    }
+});
+
+let numPage = duplicatedfixedColors.length; // Increased granularity for the slider
+
+const duplicatedfixedColors_rgb = duplicatedfixedColors.map(color => {
+    const { X, Y, Z } = xyYtoXYZ(color.x, color.y, color.Y);
+    return XYZtoRGB(X, Y, Z);
+});
+
+//////////////////////// Build the color paths /////////////////////////
+const colorPaths = [];
+
+for (let i = 0; i < endpoints.length; i++) {
+    const endxyY = duplicatedfixedColors[i];
+    const startxyY = endpoints[i];
+    
+    colorPaths.push({ startxyY, endxyY });
+    
+}
+
+console.log("colorPaths: ", colorPaths);
+
+
+////////////////////////// Global variable to keep track of the current page //////////////////////////
+
+
+console.log("num page: ", numPage)
+////////////////////////// Functions //////////////////////////
 function parseRGB(rgbString) {
     const regex = /^rgb\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})\)$/;
     const match = rgbString.match(regex);
@@ -50,23 +119,6 @@ function RGBToxyY(rgbString) {
 
 }
 
-const fixedColorsxyY = fixedColors.map(color => RGBToxyY(color));
-console.log(fixedColorsxyY);
-
-const colorPaths = [];
-
-endColors.forEach(endxyY => {
-    fixedColorsxyY.forEach(startxyY => {
-        colorPaths.push({ startxyY, endxyY });
-    });
-});
-
-console.log(colorPaths);
-
-// Global variable to keep track of the current page
-let currentPage = 1;  
-let numPage = 15;
-let totalsliderValue = 100;
 
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -82,36 +134,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function setupEventListeners() {
     const slider = document.getElementById("color-slider");
-    const submitButton = document.getElementById("submit-color");
     const noMatchButton = document.getElementById("no-match");
     const nextPageButton = document.getElementById("next-page");
 
     if (slider) {
-        slider.addEventListener("input", function(){
+        // Update color in real-time as the slider is dragged
+        slider.addEventListener("input", function() {
+            updateColor(slider.value);
+        });
+
+        // Optional: Update color when the user releases the slider, ensuring final color is set
+        slider.addEventListener("change", function() {
             updateColor(slider.value);
         });
     } else {
         console.error("Slider not found.");
-    }
-
-    if (submitButton) {
-        submitButton.addEventListener("click", function() {
-            submitColor('submitColor');
-        });
-    } else {
-        console.error("Submit button not found.");
-    }
+    } 
 
     if (noMatchButton) {
         noMatchButton.addEventListener("click", function() {
             submitColor('noMatch');
+            goToNextPage(); // Navigate to the next page after submitting
         });
     } else {
         console.error("No Match button not found.");
     }
 
     if (nextPageButton) {
-        nextPageButton.addEventListener("click", function(){
+        nextPageButton.addEventListener("click", function() {
+            submitColor('submitColor');
             goToNextPage();
         });
     } else {
@@ -130,7 +181,7 @@ function goToNextPage() {
     if (currentPage >= numPage){
         window.location.href = '/thankyou';
     } else{
-        currentPage = currentPage + 1; // Loop from page 15 back to 1
+        currentPage = currentPage + 1; 
         const nextPageUrl = `survey_page${currentPage}`;
         history.pushState({ page: currentPage }, `Page ${currentPage}`, nextPageUrl);
         updateUIForPage(currentPage);
@@ -142,7 +193,7 @@ function updateUIForPage(page) {
     // Set the fixed color based on the current page
     const fixedColorDisplay = document.getElementById("fixed-color-display");
     if (fixedColorDisplay) {
-        fixedColorDisplay.style.backgroundColor = fixedColors[((page - 1) % 5)];
+        fixedColorDisplay.style.backgroundColor = duplicatedfixedColors_rgb[(page - 1)];
     }
     // Reset the slider value to 0 for a fresh start on each page
     const slider = document.getElementById("color-slider");
@@ -152,18 +203,44 @@ function updateUIForPage(page) {
     } else {
         console.error("Slider not found.");
     }
-
-    // Assuming there are elements to update per page, otherwise implement needed changes
-    const colorDisplay = document.getElementById("color-display");
+    threshold = Math.random() * (max - min) + min;
+    console.log("threshold: ", threshold);
     updateColor(0);  // Initialize with a default position of the slider
 }
 
 function updateColor(sliderValue) {
     const colorDisplay = document.getElementById("color-display");
-    let t = sliderValue / totalsliderValue;  // Normalize slider value to 0-1
-    let { R, G, B } = interpolateColor(t, currentPage);
-    colorDisplay.style.backgroundColor = `rgb(${R}, ${G}, ${B})`;
+    
+    // Normalize slider value to 0-1
+    let t = sliderValue / totalsliderValue;
+    
+    if (t <= threshold) {
+        t = t / threshold; 
+        console.log("First color path active, normalized t:", t);
+        console.log("currentxyY", currentxyY);
+        ({ R, G, B } = interpolateColor(t, currentPage));
+        colorDisplay.style.backgroundColor = `rgb(${R}, ${G}, ${B})`;
+    } else {
+        // Normalize for the second segment
+        t = (t - threshold) / (1 - threshold);
+        console.log("Second color path active, normalized t:", t);
+        console.log("currentxyY", currentxyY);
+        // Calculate index within the range of available colors in colorPaths2
+        let index = Math.floor(t * numAddedpoints);  // Calculate index in the 10 color points
+        index = Math.min(index, numAddedpoints - 1); // Ensure index does not exceed bounds
+        
+        // Fetch color from colorPaths2 for the current page
+        console.log("colorPaths2[currentPage - 1]: ", colorPaths2[currentPage - 1]);
+        console.log("colorPaths2[currentPage - 1][index]: ", colorPaths2[currentPage - 1][index]);
+        if (colorPaths2[currentPage - 1] && colorPaths2[currentPage - 1][index]) {
+            let color = colorPaths2[currentPage - 1][index]; // This should directly be a 'rgb(R, G, B)' string
+            colorDisplay.style.backgroundColor = color; // Directly use the RGB string
+        } else {
+            console.error("Color path data not found for index:", index);
+        }
+    }
 }
+
 
 //Auxiliary Function 2: Get Page Id
 function getPageId() {
@@ -208,12 +285,11 @@ function submitColor(actionType) {
     const slider = document.getElementById("color-slider");
 
     let currentPath = colorPaths[currentPage - 1];
-    let query_vec = computeQueryVector(currentPath.startxyY, currentPath.endxyY);
-    let distance = computeDistance(currentPath.startxyY, currentPath.endxyY);
-    let gamma = distance * slider.value / totalsliderValue;
+    let query_vec = computeQueryVector(currentPath.endxyY, currentPath.startxyY); //refpt -> startpoint
+    let gamma = computeDistance(currentPath.endxyY, currentxyY); //gamma = eucdis(refpt, curpt)
 
-    let fixedColorxyY = currentPath.startxyY;
-    let endColorxyY = currentPath.endxyY;
+    let fixedColorxyY = currentPath.endxyY;
+    let startColorxyY = currentPath.startxyY;
     let pageId = getPageId();
 
     if (actionType === 'noMatch') {
@@ -222,7 +298,7 @@ function submitColor(actionType) {
             query_vec: query_vec,
             gamma: null, 
             fixedColor: fixedColorxyY,
-            endColor: endColorxyY
+            startColor: startColorxyY
         };
     } else {
         data = {
@@ -230,7 +306,7 @@ function submitColor(actionType) {
             query_vec: query_vec,
             gamma: gamma,
             fixedColor: fixedColorxyY,
-            endColor: endColorxyY
+            endColor: startColorxyY
         };
     }
 
@@ -248,59 +324,124 @@ function submitColor(actionType) {
 function xyYtoXYZ(x, y, Y) {
     if (y === 0) return { X: 0, Y: 0, Z: 0 };
 
-    let X = (x * Y) / y;
-    let Z = ((1 - x - y) * Y) / y;
+    const X = (x * Y) / y;
+    const Z = ((1 - x - y) * Y) / y;
     return { X, Y, Z };
 }
 
 function XYZtoRGB(X, Y, Z) {
-    // Matrix transformation from XYZ to linear RGB
-    let R =  3.2406*X - 1.5372*Y - 0.4986*Z;
-    let G = -0.9689*X + 1.8758*Y + 0.0415*Z;
-    let B =  0.0557*X - 0.2040*Y + 1.0570*Z;
+    // Matrix transformation from XYZ to linear RGB (sRGB)
+    let R =  3.2406 * X - 1.5372 * Y - 0.4986 * Z;
+    let G = -0.9689 * X + 1.8758 * Y + 0.0415 * Z;
+    let B =  0.0557 * X - 0.2040 * Y + 1.0570 * Z;
 
-    // Apply gamma correction and clamp the values between 0 and 1
-    return {
-        R: clampRGB(R),
-        G: clampRGB(G),
-        B: clampRGB(B)
-    };
+    // Apply gamma correction
+    R = gammaCorrection(R);
+    G = gammaCorrection(G);
+    B = gammaCorrection(B);
+
+    // Clamp the values between 0 and 255 for RGB
+    R = Math.round(clamp(R * 255, 0, 255));
+    G = Math.round(clamp(G * 255, 0, 255));
+    B = Math.round(clamp(B * 255, 0, 255));
+
+    return `rgb(${R}, ${G}, ${B})`;
 }
 
-function clampRGB(value) {
-    let linear = Math.max(0, Math.min(1, value));  // Clamp between 0 and 1
-    if (linear <= 0.0031308)
-        return 12.92 * linear;
-    else
-        return 1.055 * Math.pow(linear, 1/2.4) - 0.055;
+function gammaCorrection(value) {
+    return value <= 0.0031308 ? 12.92 * value : 1.055 * Math.pow(value, 1 / 2.4) - 0.055;
 }
 
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
+
+
+
+//////////////////// Slider Color Interpolation ///////////////////////
 function interpolateColor(t, page) {
     const path = colorPaths[page - 1];
-    const startx = path.endxyY.x;
-    const starty = path.endxyY.y;
-    const startY = path.endxyY.Y;
-    const endx = path.startxyY.x;
-    const endy = path.startxyY.y;
-    const endY = path.startxyY.Y;
-    console.log(startx, endx)
-    console.log(path)
-    let x = startx + (endx - startx) * t;  // Linear interpolation from startX to endX
-    let y = starty + (endy - starty) * t;  // Linear interpolation from startY to endY
-    let Y = startY + (endY - startY) * t;  
+
+    const startx = path.startxyY.x;
+    const starty = path.startxyY.y;
+    const startY = path.startxyY.Y;
+    const endx = path.endxyY.x;
+    const endy = path.endxyY.y;
+    const endY = path.endxyY.Y;
+    // console.log(path)
+    currentxyY.x = startx + (endx - startx) * t;  
+    currentxyY.y = starty + (endy - starty) * t;  
+    currentxyY.Y = startY + (endY - startY) * t;  
+
 
     // Convert to XYZ, then to RGB
-    let { X, Y: newY, Z } = xyYtoXYZ(x, y, Y);
-    let { R, G, B } = XYZtoRGB(X, newY, Z);
+    let {X, Y:newY, Z} = xyYtoXYZ(currentxyY.x, currentxyY.y, currentxyY.Y);
 
-    console.log( x, y, Y);
 
     // Convert 0-1 RGB to 0-255 for CSS usage
     return {
-        R: R * 255,
-        G: G * 255,
-        B: B * 255
+        R: parseRGB(XYZtoRGB(X, newY, Z))[0],
+        G: parseRGB(XYZtoRGB(X, newY, Z))[1],
+        B: parseRGB(XYZtoRGB(X, newY, Z))[2]
     };
 }
+
+
+//////////////////////// Build Color Path2 ////////////////////////
+const steps = numAddedpoints;
+
+// Convert each fixed color from xyY to RGB
+const rgbColors = fixedColors.map(color => {
+    const {X, Y, Z} = xyYtoXYZ(color.x, color.y, color.Y);
+    return {
+        R: parseRGB(XYZtoRGB(X, Y, Z))[0],
+        G: parseRGB(XYZtoRGB(X, Y, Z))[1],
+        B: parseRGB(XYZtoRGB(X, Y, Z))[2]
+    };
+});
+console.log("rgbColors: ", rgbColors);
+
+function createRandomTargetColor(color) {
+    const variation = 40;  // Maximum variation added to each color component
+    return {
+        R: clamp(color.R + variation, 0, 255),
+        G: clamp(color.G + variation, 0, 255),
+        B: clamp(color.B + variation, 0, 255)
+    };
+}
+
+//interpolate color path in RGB 
+function interpolateColor2(startColor, endColor, steps) {
+    let colorPath = [];
+    for (let i = 0; i < steps; i++) {
+        let t = i / (steps - 1);
+        let interpolatedColor = {
+            R: Math.round(startColor.R + (endColor.R - startColor.R) * t),
+            G: Math.round(startColor.G + (endColor.G - startColor.G) * t),
+            B: Math.round(startColor.B + (endColor.B - startColor.B) * t)
+        };
+        colorPath.push(`rgb(${interpolatedColor.R}, ${interpolatedColor.G}, ${interpolatedColor.B})`);
+    }
+    return colorPath;
+}
+
+// Generate target colors for each RGB color with randomness
+const targetColors = [
+    { R: 0, G: 128, B: 128 },
+    { R: 0, G: 139, B: 139 },
+    { R: 184, G: 134, B: 11 },
+    { R: 255, G: 105, B: 180 }
+];
+
+// Generate color paths for each pair of start and target colors
+const colorPaths22 = rgbColors.map((rgbColor, index) => interpolateColor2(rgbColor, targetColors[index], steps));
+
+// Duplicate each color path row 20 times to construct colorPaths2
+const colorPaths2 = colorPaths22.flatMap(path => Array(20).fill([...path]));
+
+
+
+
+
 
 
