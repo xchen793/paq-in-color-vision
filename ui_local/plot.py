@@ -22,7 +22,7 @@ def objective_function(cov_params, data_points, fixed_point):
 
 
 # Load the JSON data from the file
-with open('ui_local/data/color_data_jingyan.json', 'r') as file:
+with open('./data/color_data_austin.json', 'r') as file:
     data = json.load(file)
 
 fixed_points_data = {}
@@ -59,7 +59,7 @@ for fixed, data_points in fixed_points_data.items():
     theta = np.degrees(np.arctan2(*vecs[:,0][::-1]))
     width, height = 2 * np.sqrt(vals)  # 2 std deviations
     ellipse_patch = Ellipse(fixed, width, height, angle=theta, edgecolor='green', facecolor='none', lw=2)
-    ax.add_patch(ellipse_patch)
+    #ax.add_patch(ellipse_patch)
     
     ax.scatter(*zip(*data_points), color='red', s=30)
     ax.scatter(*fixed, color='blue', s=100)
