@@ -5,7 +5,7 @@
     "queries"           : ["paired_comparison", "triplet"],
     "num_meas"          : [10, 15],
     "thresh"            : 5,
-    "const_start"       : 1,
+    "const_start"       : 0.1,
     "normalize"         : false,
     "square"            : false
 }

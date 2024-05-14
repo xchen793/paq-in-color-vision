@@ -2,7 +2,7 @@
     "sweep_type"        : "meas",
     "num_ref"           : 25,
     "eigenvalue_gap"    : 10,
-    "queries"           : ["paq", "paq_noisy_low", "paq_noisy_med", "paq_noisy_high", "paired_comparison", "triplet"],
+    "queries"           : ["paired_comparison", "triplet", "paq", "paq_noisy_low", "paq_noisy_med", "paq_noisy_high"],
     "num_meas"          : [3, 5, 10, 25, 50, 75, 100, 125, 150, 200, 250],
     "thresh"            : 5,
     "const_start"       : 1,

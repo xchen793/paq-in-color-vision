@@ -6,11 +6,14 @@ import os
 import json
 import random
 
-#from typing import Callable
+from datetime import datetime
+
 from collections import defaultdict
 
+from sklearn.decomposition import PCA
+
 np.random.seed(2024)
-solvers = [cp.SCS, cp.CVXOPT]
+solvers = [cp.SCS]
 
 # forward model
 def generate_gt(n_ref: int, eigenvalue_gap: int) -> dict:
@@ -57,6 +60,7 @@ def generate_gt(n_ref: int, eigenvalue_gap: int) -> dict:
         u2_stars.append(u2_star)
         u1_stars.append(u1_star)
 
+    gt_out['eigenvectors'] = [u1_stars, u2_stars]
     ############  Part 3: Compute true metrics  ############
     sigma_stars = []
     for u2_star, u1_star in zip(u2_stars, u1_stars):
@@ -68,6 +72,7 @@ def generate_gt(n_ref: int, eigenvalue_gap: int) -> dict:
         sigma_stars.append(sigma_star)
 
     gt_out['sigma_stars'] = sigma_stars
+    
 
     return gt_out
     
@@ -91,6 +96,7 @@ def generate_measurements(num_meas: int, gt: dict, query_type: str = 'paq', thre
     for n in range(num_ref):
         responses_n = []
         feat_matrix_n = np.zeros((2, 2, num_meas))
+        item_vectors = []
         Sig_n = gt['sigma_stars'][n]
         if 'paq' in query_type:      
             for i in range(num_meas):
@@ -103,6 +109,7 @@ def generate_measurements(num_meas: int, gt: dict, query_type: str = 'paq', thre
 
                 feat_matrix_n[:,:,i] = gamma_i * np.outer(a_i, a_i)
                 responses_n.append( gamma_i )
+                item_vectors.append(a_i)
         
         elif query_type == 'triplet':
             for i in range(num_meas):
@@ -117,6 +124,7 @@ def generate_measurements(num_meas: int, gt: dict, query_type: str = 'paq', thre
                     outcome = -1
 
                 responses_n.append(outcome)
+                item_vectors.append(delta_i)
 
         elif query_type == 'paired_comparison':
             for i in range(num_meas):
@@ -131,8 +139,9 @@ def generate_measurements(num_meas: int, gt: dict, query_type: str = 'paq', thre
                     outcome = -1
 
                 responses_n.append(outcome)
+                item_vectors.append(delta_i)
 
-        responses[n] = [feat_matrix_n, responses_n]
+        responses[n] = [feat_matrix_n, responses_n, item_vectors]
     return responses
 
 
@@ -141,7 +150,7 @@ def estimate_metric(responses: dict, thresh: float = 1, query_type: str = 'paq',
     est_out = {}
     n_ref = len(responses)
     for n in range(n_ref):
-        feat_matrix_n, labels = responses[n]
+        feat_matrix_n, labels, _ = responses[n]
         #feat_flat_n = feat_matrix_n.reshape(4, -1)
         num_meas = len(labels)
 
@@ -150,7 +159,7 @@ def estimate_metric(responses: dict, thresh: float = 1, query_type: str = 'paq',
         loss = 0
         for i in range(num_meas):
             feat_matrix = feat_matrix_n[:,:,i]
-            if 'paq' in query_type:
+            if 'paq' in query_type: 
                 loss += (thresh - cp.trace(feat_matrix @ Sig_hat))**2 / num_meas
 
                 #loss = cp.sum_squares( thresh - (cp.vec(Sig_hat) @ feat_flat_n) ) / num_meas #+ 0.1 * cp.norm(Sig_hat, 'fro')
@@ -164,22 +173,57 @@ def estimate_metric(responses: dict, thresh: float = 1, query_type: str = 'paq',
                 #loss = cp.sum(cp.pos( thresh - cp.multiply(labels, (cp.vec(Sig_hat) @ feat_flat_n))) ) / num_meas #+ 0.1 * cp.norm(Sig_hat, 'fro')
 
 
-        obj = cp.Minimize(loss)
-        prob = cp.Problem(obj)
+            obj = cp.Minimize(loss)
+            prob = cp.Problem(obj)
 
-        prob.solve(solver=cp.SCS, max_iters = max_iter)
-        ct = 1
-        while prob.status != cp.OPTIMAL and ct < len(solvers):
-            prob.solve(solver=solvers[ct], max_iters = max_iter)
-            ct += 1
-        
-        #print(f'Tried {ct + 1} solvers, status {prob.status}')
-        
-        est = Sig_hat.value
-        est_out[n] = est
+            prob.solve(solver=cp.SCS, max_iters = max_iter)
+            ct = 1
+            while prob.status != cp.OPTIMAL and ct < len(solvers):
+                prob.solve(solver=solvers[ct], max_iters = max_iter)
+                ct += 1
+            
+            #print(f'Tried {ct + 1} solvers, status {prob.status}')
+            
+            est = Sig_hat.value
+            est_out[n] = est
     
     return est_out
 
+def estimate_metric_pca(responses: dict, gt: dict, thresh : float = 1, query_type: str = 'paq') -> dict:
+    est_out = {}
+    n_ref = len(responses)
+    num_meas = len(responses[0][1])
+    refs = gt['refs']
+    for n in range(n_ref):
+        response_items = []
+        _, labels, query_dirs = responses[n]
+        labels = [np.sqrt(l) for l in labels]
+        for i in range(num_meas):
+            response_item = (labels[i] * query_dirs[i].reshape(1,-1))
+            response_items.append(response_item)
+
+        response_items = np.concatenate(response_items, axis=0)
+
+        XtX = response_items.T @ response_items
+        
+        U, Sig, _ = np.linalg.svd(XtX)
+
+        #print(f'U: {U[::-1]} | Sig: {Sig}')
+
+        # eigenvectors, eigenvalues, _ = np.linalg.svd(gt['sigma_stars'][n])
+        # indices = np.argsort(eigenvalues)[::-1]
+        # eigenvalues = eigenvalues[indices]
+        # eigenvectors = eigenvectors[:, indices]
+        # print(f'gt eigvec: {eigenvectors}')
+
+        # gt_eig0 = gt['eigenvectors'][0][n]
+        # gt_eig1 = gt['eigenvectors'][1][n]
+        # print(f'gt eigvec, direct: {gt_eig0}, {gt_eig1}')
+        # print("----")
+
+        est_out[n] = U @ np.diag(Sig) @ U.T
+
+    return est_out
 
 # step 2: compute cones
 def compute_cones(est_out: dict, gt: dict, num_meas: int, cheat: bool = False, const: float = 10) -> tuple[list, list]:
@@ -189,6 +233,7 @@ def compute_cones(est_out: dict, gt: dict, num_meas: int, cheat: bool = False, c
     for n, sigma_hat in est_out.items():
         # compute svd of Sig_hat
         eigenvalues, eigenvectors = np.linalg.eigh(sigma_hat)
+
         indices = np.argsort(eigenvalues)[::-1]
         eigenvalues = eigenvalues[indices]
         eigenvectors = eigenvectors[:, indices]
@@ -233,14 +278,10 @@ def estimate_copunctal(alphas: dict, major_axes: dict, refs: list, w_star: np.nd
         cos_alpha_2 = np.cos(alpha / 2)
         sin_alpha_2 = np.sin(alpha / 2)
 
-        # print(u2_hat)
-        # true_dir = (w_star - zn) / np.linalg.norm(zn - w_star)
-        # print(true_dir)
-
 
         if w_star is not None and not feas_check(w_star, zn, u2_hat, alpha):
             if not feas_check(w_star, zn, -u2_hat, alpha):
-                # print(f'Error cone alpha: {alpha} | dot product: {np.dot(u2_hat, true_dir)}')
+                # print(f'Error cone alpha: {alpha}')
                 # print(feas_check(w_star, zn, u2_hat, np.pi))
                 # print('failed')
                 # print('-----')
@@ -308,16 +349,60 @@ def plot_figure(fname: str, save_name: str, sweep_type: str) -> None:
         sweep_param = sorted([int(i) for i in sweep_param])
         results = {int(k):v for k, v in results.items()}
 
-        err_mean = [results[n][0] for n in sweep_param]
-        err_std = [results[n][1] for n in sweep_param]
+        err_mean = [results[n]['err'][0] for n in sweep_param]
+        err_std = [results[n]['err'][1] for n in sweep_param]
 
         err_std_low = [err_mean[i] - err_std[i] for i in range(len(err_mean))]
         err_std_high = [err_mean[i] + err_std[i] for i in range(len(err_mean))]
 
         plt.loglog(sweep_param, err_mean, label = get_label(query_type))
         plt.fill_between(sweep_param, err_std_low, err_std_high, alpha = 0.5)
-        plt.xlabel(get_x_axis_label(sweep_type))
-        plt.ylabel('Copunctal point estimation error')
+    
+    plt.xlabel(get_x_axis_label(sweep_type))
+    plt.ylabel('Copunctal point estimation error')
     plt.legend()
     plt.savefig(save_name)
     plt.show()
+
+    save_name = f'failure_rate_{save_name}'
+    plt.figure(1)
+    for query_type, results in res.items():
+        sweep_param = list(results.keys())
+        sweep_param = sorted([int(i) for i in sweep_param])
+        results = {int(k):v for k, v in results.items()}
+
+        err_mean = [results[n]['fails'][0] / 50 for n in sweep_param]
+        err_std = [results[n]['fails'][1] / 50 for n in sweep_param]
+
+        err_std_low = [err_mean[i] - err_std[i] for i in range(len(err_mean))]
+        err_std_high = [err_mean[i] + err_std[i] for i in range(len(err_mean))]
+
+        plt.plot(sweep_param, err_mean, label = get_label(query_type))
+        plt.fill_between(sweep_param, err_std_low, err_std_high, alpha = 0.5)
+    
+    plt.xlabel(get_x_axis_label(sweep_type))
+    plt.ylabel('Number of constraint violations')
+    plt.ylim(0, 1)
+    plt.legend()
+    plt.savefig(save_name)
+    plt.show()
+
+
+def create_directory(sweep_type:str) -> str:
+    # Get today's date and time
+    now = datetime.now()
+    
+    # Format the date and time
+    date_time = now.strftime("%Y-%m-%d_%H-%M-%S")
+    
+    # Create directory name using formatted date and time
+    directory_name = f"./sweep_results/sweep_{sweep_type}_{date_time}"
+    
+    # Create the directory
+    try:
+        os.makedirs(directory_name)
+        print(f"Directory '{directory_name}' created successfully.")
+    except FileExistsError:
+        print(f"Directory '{directory_name}' already exists.")
+
+    return directory_name
