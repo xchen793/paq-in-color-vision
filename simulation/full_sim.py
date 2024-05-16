@@ -6,13 +6,13 @@ import os
 import json
 import random
 import argparse
-import datetime
+import datetime 
 
 from collections import defaultdict
 
 from utils import *
 
-MAX_RETRIES = 100
+MAX_RETRIES = 20
 STOP_THRESH = 3
 NUM_TRIALS = 20
 VIABLE_QUERY_TYPES = ['paq', 'paq_noisy_low', 'paq_noisy_med', 'paq_noisy_high', 'paired_comparison', 'triplet']
@@ -21,23 +21,23 @@ REF_SWEEP = 'ref'
 GAP_SWEEP = 'gap'
 MEAS_SWEEP = 'meas'
 
-
 def run_one_exp() -> None:
-    num_ref = 2
+    num_ref = 25
     eigenvalue_gap = 10
 
-    num_meas = 4
-    query_type = 'paq_noisy_low'
+    num_meas = 250
+    query_type = 'paq'
     gt_out = generate_gt(num_ref, eigenvalue_gap)
     thresh = 5
-    noise_frac = 0.1
+    noise_frac = 0
     normalize = False
     square = False
 
     # From GT values, generate measurements
     meas_out = generate_measurements(num_meas, gt_out, query_type=query_type, thresh=thresh, noise_frac=noise_frac)
     # Use queries to estimate metrics
-    est_out = estimate_metric_pca(meas_out, gt_out, query_type=query_type)
+    est_out = estimate_metric(meas_out, query_type=query_type, thresh=thresh)
+    print(est_out)
 
     # for k, v in est_out.items():
     #     print(f'{k} : {v}')
@@ -46,17 +46,18 @@ def run_one_exp() -> None:
     # for k, v in est_out.items():
     #     print(f'n = {k} | sig_hat = {v}')
 
-    const = 10
+    const = 1
     w_star = gt_out['w_star']
-    angles_out, major_axes_out = compute_cones(est_out, gt_out, num_meas, const=const)
-    # for a in angles_out:
-    #     print(a*180/np.pi)
+    angles_out, major_axes_out = compute_cones(est_out, gt_out, num_meas, const=const, pca=True)
+    angles_deg_out = [a*180/np.pi for a in angles_out]
+    print(f'angles: {angles_deg_out}')
 
     w_hat, status, num_fails = estimate_copunctal(angles_out, major_axes_out, gt_out['refs'], w_star=w_star)
 
-    print(w_hat)
-    print(w_star)
-    print(compute_err(w_star, w_hat, normalize=normalize, squared=square))
+    print(f'est: {w_hat} | true: {w_star} | fails: {num_fails}')
+    if w_hat is not None:
+        err = compute_err(w_star, w_hat, normalize=normalize, squared=square)
+        print(f'err: {err}')
 
 def run_sweep(config: dict, dir: str, plot_only: bool = False) -> str:
 
@@ -68,6 +69,10 @@ def run_sweep(config: dict, dir: str, plot_only: bool = False) -> str:
     const_start = config['const_start']
     normalize = config['normalize']
     square = config['square']
+    if 'pca' not in config:
+        use_pca = False
+    else:
+        use_pca = config['pca']
 
     sweep_type = config['sweep_type']
     if sweep_type == MEAS_SWEEP:
@@ -120,8 +125,12 @@ def run_sweep(config: dict, dir: str, plot_only: bool = False) -> str:
 
             err_mc = []
             num_fails_mc = []
+            best_const_mc = []
 
             for mc in range(NUM_TRIALS):
+                if (mc + 1) % 5 == 0:
+                    print(f'Processed {mc + 1} / {NUM_TRIALS} \t | err so far = {np.average(err_mc)} \t | fails so far = {np.average(num_fails_mc)} \t | const so far = {np.average(best_const_mc)}')
+
                 # Generate ground truth values
                 gt_out = generate_gt(num_ref, eigenvalue_gap)
 
@@ -129,14 +138,14 @@ def run_sweep(config: dict, dir: str, plot_only: bool = False) -> str:
                 meas_out = generate_measurements(num_meas, gt_out, query_type=query_type, thresh=thresh, noise_frac=noise_frac)
 
                 # Use queries to estimate metrics
-                if 'paq' not in query_type or 'pca' not in config or not config['pca']:
+                if not use_pca:
                     est_out = estimate_metric(meas_out, query_type=query_type, thresh=thresh)
                 else:
                     est_out = estimate_metric_pca(meas_out, gt_out, thresh=thresh, query_type=query_type)
 
                 const = const_start
                 w_star = gt_out['w_star']
-                angles_out, major_axes_out = compute_cones(est_out, gt_out, num_meas, const=const)
+                angles_out, major_axes_out = compute_cones(est_out, gt_out, num_meas, const=const, pca=use_pca)
                 w_hat, status, num_fails = estimate_copunctal(angles_out, major_axes_out, gt_out['refs'], w_star=w_star)
 
                 if w_hat is not None:
@@ -147,42 +156,54 @@ def run_sweep(config: dict, dir: str, plot_only: bool = False) -> str:
                     err_best = 1e9
                     num_fails_best = 1e9
 
+                #print(f'errors: {err} | num_fails: {num_fails}')
                 ct = 0
                 stop_sign = 0
-                best_const = const_start
+                best_const = const
+                #const_mult = const_start
                 while ct < MAX_RETRIES and stop_sign < STOP_THRESH: 
                     if const == 1:
-                        const += 9
+                        const += 4
                     elif const < 1:
                         const += 0.1
                     else:
-                        const += 10
+                        const += 5
+                    #const_mult += 0.1
+                    #const = const_mult * num_meas
                     angles_out, major_axes_out = compute_cones(est_out, gt_out, num_meas, const=const)
                     w_hat, status, num_fails = estimate_copunctal(angles_out, major_axes_out, gt_out['refs'], w_star = w_star)
                     ct += 1
+                    
 
                     if w_hat is not None:
                         err = compute_err(w_star, w_hat, normalize=normalize, squared=square)
+                        #print(f'errors: {err} | num_fails: {num_fails}')
                         if num_fails < num_fails_best:
                             err_best = err
                             num_fails_best = num_fails
                             stop_sign = 0
                             best_const = const
                         elif num_fails == num_fails_best:
-                            err_best = min(err_best, err)
-                            stop_sign = 0
-                            best_const = const
+                            if err < err_best:
+                                err_best = err
+                                best_const = const
+                                stop_sign = 0
+                            else:
+                                stop_sign += 1
                         else:
                             stop_sign += 1
 
                 #print(f'best const: {best_const} | num violations: {num_fails_best} | err: {err_best}')
                 err_mc.append(err_best)
                 num_fails_mc.append(num_fails_best)
+                best_const_mc.append(best_const)
                 #print(f'Best performance had {num_fails_best} / {2*num_ref} violated constraints')
 
+            print(f'Finished sweep, avg err = {np.average(err_mc)} |\t avg fails = {np.average(num_fails_mc)} |\t best const: {np.average(best_const_mc)} |\t stop: {stop_sign}')
             res_query[sweep_var] = {
                 'err': [np.average(err_mc), np.std(err_mc) / NUM_TRIALS, err_mc],
-                'fails' : [np.average(num_fails_mc), np.std(num_fails_mc) / NUM_TRIALS, num_fails_mc]
+                'fails' : [np.average(num_fails_mc), np.std(num_fails_mc) / NUM_TRIALS, num_fails_mc],
+                'const' : [best_const_mc]
             }
 
         res[query_type] = res_query

@@ -107,7 +107,7 @@ def generate_measurements(num_meas: int, gt: dict, query_type: str = 'paq', thre
                 else:
                     gamma_i = thresh / quad_i
 
-                feat_matrix_n[:,:,i] = gamma_i * np.outer(a_i, a_i)
+                feat_matrix_n[:,:,i] = np.outer(a_i, a_i)
                 responses_n.append( gamma_i )
                 item_vectors.append(a_i)
         
@@ -159,8 +159,9 @@ def estimate_metric(responses: dict, thresh: float = 1, query_type: str = 'paq',
         loss = 0
         for i in range(num_meas):
             feat_matrix = feat_matrix_n[:,:,i]
-            if 'paq' in query_type: 
-                loss += (thresh - cp.trace(feat_matrix @ Sig_hat))**2 / num_meas
+            if 'paq' in query_type:
+                meas = thresh / labels[i] 
+                loss += (meas - cp.trace(feat_matrix @ Sig_hat))**2 / num_meas
 
                 #loss = cp.sum_squares( thresh - (cp.vec(Sig_hat) @ feat_flat_n) ) / num_meas #+ 0.1 * cp.norm(Sig_hat, 'fro')
 
@@ -194,6 +195,7 @@ def estimate_metric_pca(responses: dict, gt: dict, thresh : float = 1, query_typ
     n_ref = len(responses)
     num_meas = len(responses[0][1])
     refs = gt['refs']
+    #plt.figure(figsize=(8, 6))
     for n in range(n_ref):
         response_items = []
         _, labels, query_dirs = responses[n]
@@ -204,37 +206,67 @@ def estimate_metric_pca(responses: dict, gt: dict, thresh : float = 1, query_typ
 
         response_items = np.concatenate(response_items, axis=0)
 
-        XtX = response_items.T @ response_items
+        XtX = response_items.T @ response_items / (num_meas - 1)
         
         U, Sig, _ = np.linalg.svd(XtX)
+        Sig_est = U @ np.diag(Sig) @ U.T
 
-        #print(f'U: {U[::-1]} | Sig: {Sig}')
+        #scales = [1]
+        # for i in range(num_meas):
+        #     ga_i = response_items[i]
+        #     scale = thresh / (ga_i.T @ Sig_est_unscaled @ ga_i)
+        #     scales.append(scale)
 
-        # eigenvectors, eigenvalues, _ = np.linalg.svd(gt['sigma_stars'][n])
-        # indices = np.argsort(eigenvalues)[::-1]
-        # eigenvalues = eigenvalues[indices]
-        # eigenvectors = eigenvectors[:, indices]
-        # print(f'gt eigvec: {eigenvectors}')
+        #Sig_est = np.mean(scales) * Sig_est_unscaled
+        #print(f'mean scale: {np.mean(scales)} | Sig: {Sig}')
 
-        # gt_eig0 = gt['eigenvectors'][0][n]
-        # gt_eig1 = gt['eigenvectors'][1][n]
-        # print(f'gt eigvec, direct: {gt_eig0}, {gt_eig1}')
-        # print("----")
+        # sorted_indices = np.argsort(Sig)[::-1]
+        # Sig = Sig[sorted_indices]
+        # U = U[:, sorted_indices]
 
-        est_out[n] = U @ np.diag(Sig) @ U.T
+        # # Extract principal components
+        # pc1 = U[0]  # First principal component
+        # pc2 = U[1]  # Second principal component
 
+        # #Plot the data and principal components
+        
+        # #plt.scatter(response_items[:,0] + refs[n][0], response_items[:,1] + refs[n][1], alpha=0.6, label='Data')
+
+        # plt.quiver(refs[n][0], refs[n][1], pc1[0], pc1[1], angles='xy', scale_units='xy', scale=0.1, color='r', label='Principal Component 1')
+        # #plt.quiver(0, 0, pc2[0], pc2[1], angles='xy', scale_units='xy', scale=2, color='g', label='Principal Component 2')
+
+
+        est_out[n] = Sig_est
+
+    # print(gt['w_star'])
+    # plt.scatter(gt['w_star'][0], gt['w_star'][1])
+    # plt.xlabel('X')
+    # plt.ylabel('Y')
+    # plt.axhline(0, color='black',linewidth=0.5)
+    # plt.axvline(0, color='black',linewidth=0.5)
+    # plt.grid(color = 'gray', linestyle = '--', linewidth = 0.5)
+    # plt.axis('equal')
+    # plt.title('Principal Components of 2D PCA')
+    # plt.show()
     return est_out
 
 # step 2: compute cones
-def compute_cones(est_out: dict, gt: dict, num_meas: int, cheat: bool = False, const: float = 10) -> tuple[list, list]:
+def compute_cones(est_out: dict, gt: dict, num_meas: int, cheat: bool = False, const: float = 10, pca: bool = False) -> tuple[list, list]:
     alphas = []
     major_axes = []
 
     for n, sigma_hat in est_out.items():
         # compute svd of Sig_hat
         eigenvalues, eigenvectors = np.linalg.eigh(sigma_hat)
+        for i, e in enumerate(eigenvalues):
+            if e < 0:
+                eigenvalues[i] = -e
+                eigenvectors[i] = -eigenvectors[i]
 
-        indices = np.argsort(eigenvalues)[::-1]
+        if not pca:
+            indices = np.argsort(eigenvalues)[::-1]
+        else:
+            indices = np.argsort(eigenvalues)
         eigenvalues = eigenvalues[indices]
         eigenvectors = eigenvectors[:, indices]
 
@@ -270,15 +302,18 @@ def estimate_copunctal(alphas: dict, major_axes: dict, refs: list, w_star: np.nd
     num_fails = 0
 
     # Add constraints for each reference point and its corresponding cone
+    num_constraints = 0
     for zn, u2_hat, alpha in zip(refs, major_axes, alphas):
-        alpha = min(2*alpha, np.pi)
+        alpha = min(alpha, np.pi)
+        #print(alpha)
+        #u2_hat = 100*u2_hat
         # Unpack the eigenvalue vector for readability
         u21_hat, u22_hat = u2_hat[0], u2_hat[1]
 
         cos_alpha_2 = np.cos(alpha / 2)
         sin_alpha_2 = np.sin(alpha / 2)
 
-
+        
         if w_star is not None and not feas_check(w_star, zn, u2_hat, alpha):
             if not feas_check(w_star, zn, -u2_hat, alpha):
                 # print(f'Error cone alpha: {alpha}')
@@ -288,19 +323,24 @@ def estimate_copunctal(alphas: dict, major_axes: dict, refs: list, w_star: np.nd
                 num_fails += 2
                 continue
             else:
-                #print('Use neg')
+                num_constraints += 2
+                #print(f'Use neg, {num_constraints} added')
                 u21_hat *= -1
-                u22_hat += -1
+                u22_hat *= -1
+        else:
+            num_constraints += 2
+            #print(f'{num_constraints} constraints added')
         #print('-----')
 
         # Upper side of the cone
         constraints.append((w[1] - zn[1]) * (cos_alpha_2 * u21_hat - sin_alpha_2 * u22_hat) <= (w[0] - zn[0]) * (sin_alpha_2 * u21_hat + cos_alpha_2 * u22_hat))
         # Lower side of the cone
         constraints.append((w[1] - zn[1]) * (cos_alpha_2 * u21_hat + sin_alpha_2 * u22_hat) >= (w[0] - zn[0]) * (-u21_hat * sin_alpha_2 + u22_hat * cos_alpha_2))
+    
+    #print(f'{num_fails}----')
     objective = cp.Minimize(0)
-
     problem = cp.Problem(objective, constraints)
-    problem.solve(solver=cp.SCS)
+    problem.solve(solver=cp.SCS)#, verbose=True)
     ct = 0
     while problem.status != cp.OPTIMAL and ct < len(solvers):
         problem.solve(solver=solvers[ct])
