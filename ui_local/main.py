@@ -2,9 +2,7 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 import cvxpy as cp
-
-
-
+import statistics
 from sklearn.linear_model import HuberRegressor, RANSACRegressor, TheilSenRegressor
 from utilities import plot_cov_ellipse, euclidean_distance, ellipse_point
 
@@ -20,36 +18,49 @@ def load_data(filename):
     return data
 
 def divide_data_by_flag(data):
-    """Divide data into two sets based on the 'flag' value."""
-    long_data = {}
-    short_data = {}
+    """Divide data into three sets based on the 'flag' value."""
+    fast_data = {}
+    medium_data = {}
+    slow_data = {}
 
     for page_id, values in data.items():
+
         flag = values['endColor']['flag']
-        if flag == 'long':
-            if page_id not in long_data:
-                long_data[page_id] = {}
-            long_data[page_id] = values
-        elif flag == 'short':
-            if page_id not in short_data:
-                short_data[page_id] = {}
-            short_data[page_id] = values
+        if flag == 'fast':
+            fast_data[page_id] = values
+        elif flag == 'medium':
+            medium_data[page_id] = values
+        else:
+            slow_data[page_id] = values
 
-    return long_data, short_data
+    return fast_data, medium_data, slow_data
 
-def metric_est_and_ellipse_plot(data, thresh: float = 1e-3, num_meas: int = 10, max_iter: int = 10000):
+def subtract_lists(l1, l2):
+    l3 = l1.copy()
+    for item in l2:
+        if item in l3:
+            l3.remove(item)
+    return l3
+
+def metric_est_and_ellipse_plot(data, thresh: float = 1e-3, num_meas: int = 10, max_iter: int = 10000, flag: str = ""):
     
     est_out = []
     data_points = {}
+    gamma_squared = []
 
     fig, ax = plt.subplots() 
     Sig_hat = cp.Variable((2,2), PSD=True)
     losses = [0,0,0,0]
-    loss_values = [[] for _ in range(4)]
     i = 0
     for _, details in data.items():
 
         gamma = details['gamma']
+        if flag == "slow":
+            gamma_squared.append(gamma**2)
+        elif flag == "median":
+            gamma_squared.append(4*gamma**2)
+        else: 
+            gamma_squared.append((1/0.33*gamma)**2)
         fixed = (details['fixedColor']['x'], details['fixedColor']['y'])
 
         a_x = details['query_vec']['x']
@@ -64,6 +75,7 @@ def metric_est_and_ellipse_plot(data, thresh: float = 1e-3, num_meas: int = 10, 
             data_points[fixed] = []
         data_points[fixed].append((data_x, data_y))
 
+
         if i < 10:
             losses[0] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
         elif i < 20:
@@ -75,6 +87,13 @@ def metric_est_and_ellipse_plot(data, thresh: float = 1e-3, num_meas: int = 10, 
         
         i += 1
 
+    # print(data_points)
+    # print(gammas_collect)
+    # for ref_pt in center_points:
+        
+    #     gamma_values = gammas_collect[ref_pt]
+    #     variance_collect.append(np.var(gamma_values))
+
     for j in range(4):
         obj = cp.Minimize(losses[j])
         prob = cp.Problem(obj)
@@ -84,12 +103,8 @@ def metric_est_and_ellipse_plot(data, thresh: float = 1e-3, num_meas: int = 10, 
         while prob.status != cp.OPTIMAL and ct < len(solvers):
             prob.solve(solver=solvers[ct], max_iters = max_iter)
             ct += 1
-        print(f'Tried {ct + 1} solvers, status {prob.status}')
+        # print(f'Tried {ct + 1} solvers, status {prob.status}')
         est_out.append(Sig_hat.value)
-
-        # Store the optimized loss value for each group
-        optimized_loss = losses[j].value
-        loss_values[j].append(optimized_loss)
 
     # # plotting
     # for center in center_points:
@@ -117,14 +132,35 @@ def metric_est_and_ellipse_plot(data, thresh: float = 1e-3, num_meas: int = 10, 
     ax.grid()
     plt.show()
 
-    print(loss_values)
-
-    return est_out
+    return gamma_squared
 
 # Main execution
 if __name__ == "__main__":
-    data = load_data('ui_local/data/color_data_lorraine_2.json')
-    long_data, short_data = divide_data_by_flag(data)
-    metric_est_and_ellipse_plot(long_data)
-    metric_est_and_ellipse_plot(short_data)
+    data = load_data('ui_local/data/color_data_lorraine3.json')
+    fast_data, medium_data, slow_data = divide_data_by_flag(data)
+
+    gamma_squared_1 = metric_est_and_ellipse_plot(fast_data, flag = "fast")
+    gamma_squared_2 = metric_est_and_ellipse_plot(medium_data, flag = "median")
+    gamma_squared_3 = metric_est_and_ellipse_plot(slow_data, flag = "slow")
+
+    print("gamma_squared_1: ", gamma_squared_1)
+    print("gamma_squared_2: ", gamma_squared_2)
+    print("gamma_squared_3: ", gamma_squared_3)
+
+    seq1 = subtract_lists(gamma_squared_1, gamma_squared_2)
+    seq2 = subtract_lists(gamma_squared_2, gamma_squared_3)
+
+    mean_value_1 = statistics.mean(seq1)
+    variance_value1 = statistics.variance(seq1) 
+    mean_value_2 = statistics.mean(seq2)
+    variance_value2 = statistics.variance(seq2) 
+
+    print("mean value for seq 1: ", mean_value_1)
+    print("mean value for seq 2: ", mean_value_2)
+    print("variance for seq 1: ", variance_value1)
+    print("variance for seq 2: ", variance_value2)
+    
+
+
+
 

@@ -39,15 +39,17 @@ fixedColors.forEach((color, index) => {
         const angle = i * angleIncrement;
         const { newX: newX1, newY: newY1 } = calculatePointOnDirection(color.x, color.y, angle, targetDistance);
         const { newX: newX2, newY: newY2 } = calculatePointOnDirection(color.x, color.y, angle, 0.5 * targetDistance);
-        endpoints.push({ x: newX1, y: newY1, Y: luminance, flag: "long" });
-        endpoints.push({ x: newX2, y: newY2, Y: luminance, flag: "short" });
+        const { newX: newX3, newY: newY3 } = calculatePointOnDirection(color.x, color.y, angle, 0.33 * targetDistance);
+        endpoints.push({ x: newX1, y: newY1, Y: luminance, flag: "fast" });
+        endpoints.push({ x: newX2, y: newY2, Y: luminance, flag: "medium" });
+        endpoints.push({ x: newX3, y: newY3, Y: luminance, flag: "slow" });
     }
 });
 
 const duplicatedfixedColors = [];
 // one quicker, one slower
 fixedColors.forEach(color => {
-    for (let i = 0; i < 2 * numberOfDirections; i++) {
+    for (let i = 0; i < 3 * numberOfDirections; i++) {
         duplicatedfixedColors.push({ ...color }); // Use the spread operator to copy the object
     }
 });
