@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+<<<<<<< HEAD
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -114,5 +115,103 @@
     </div>
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
+=======
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>RGB Color Path Slider</title>
+        <style>
+            body {
+                margin: 0;
+                padding: 20px 0;
+                font-family: Arial, sans-serif;
+                text-align: center;
+            }
+            .container {
+                width: 100%; /* Full width */
+                margin: 0 auto;
+                padding: 20px;
+            }
+            .color-displays {
+                display: flex;
+                justify-content: center;
+                gap: 50px; /* Reduced gap to bring colors closer */
+                margin-bottom: 20px;
+            }
+            #fixed-color-display, #color-display {
+                width: 300px;
+                height: 300px;
+            }
+            #fixed-color-display {
+                background-color: rgb(255, 0, 0); /* Fixed color */
+            }
+            #color-display {
+                background-color: rgb(0, 0, 0); /* Dynamic color display initialization */
+            }
+            .slider-container {
+                width: 80%;
+                min-width: 960px; /* Adjusted minimum width */
+                margin: 20px auto;
+            }
+            input[type="range"] {
+                width: 100%;
+                -webkit-appearance: none;
+                background: #ddd;
+                height: 8px;
+                border-radius: 5px;
+            }
+            input[type="range"]::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 20px;
+                height: 20px;
+                background: #4CAF50;
+                cursor: pointer;
+                border-radius: 50%;
+            }
+            input[type="range"]::-moz-range-thumb {
+                width: 20px;
+                height: 20px;
+                background: #4CAF50;
+                cursor: pointer;
+                border-radius: 50%;
+            }
+            .button-group button {
+                padding: 10px 20px;
+                font-size: 16px;
+                min-width: 100px;
+                cursor: pointer;
+                margin: 5px;
+                border: none;
+                border-radius: 5px;
+                background-color: #4CAF50;
+                color: white;
+                transition: background-color 0.3s;
+            }
+            .button-group button:hover {
+                background-color: #367c39;
+            }
+        </style>
+    </head>
+    <body>
+        <h2>RGB Color Path Slider</h2>
+            <div class="container">
+                <div class="color-displays">
+                    <div id="fixed-color-display"></div>
+                    <div id="color-display"></div>
+                </div>
+                <div class="slider-container">
+                    Adjust Color: </label> <input type="range" min="0" max="100" value="0" id="color-slider"><br>
+                </div>
+                <div class="button-group">
+                    <button id="no-match">No Match</button>
+                    <button id="next-page">Next</button>
+                </div>
+            </div>
+
+        <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+
+    </body>
+>>>>>>> origin/main
 </html>
 
