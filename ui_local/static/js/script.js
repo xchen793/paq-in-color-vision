@@ -24,27 +24,26 @@ function degreesToRadians(degrees) {
     return degrees * (Math.PI / 180);
 }
 
-// Calculate point on direction vector at a certain distance
-function calculatePointOnDirection(x, y, angle, distance) {
-    const angleRadians = degreesToRadians(angle);
-    const newX = x + distance * Math.cos(angleRadians);
-    const newY = y + distance * Math.sin(angleRadians);
-    return { newX, newY };
-}
 
 // endpoints 
 const endpoints = [];
-fixedColors.forEach((color, index) => {
+fixedColors.forEach(color => {
+    // Retrieve the key for this color
+    let colorKey = `x${color.x}-y${color.y}-Y${color.Y}`;
     for (let i = 0; i < numberOfDirections; i++) {
         const angle = i * angleIncrement;
         const { newX: newX1, newY: newY1 } = calculatePointOnDirection(color.x, color.y, angle, targetDistance);
         const { newX: newX2, newY: newY2 } = calculatePointOnDirection(color.x, color.y, angle, 0.5 * targetDistance);
         const { newX: newX3, newY: newY3 } = calculatePointOnDirection(color.x, color.y, angle, 0.33 * targetDistance);
-        endpoints.push({ x: newX1, y: newY1, Y: luminance, flag: "fast" });
-        endpoints.push({ x: newX2, y: newY2, Y: luminance, flag: "medium" });
-        endpoints.push({ x: newX3, y: newY3, Y: luminance, flag: "slow" });
+        const vector = computeQueryVector({ x: newX1, y: newY1, Y: color.Y }, color);
+        endpoints.push({ x: newX1, y: newY1, Y: luminance, flag: "fast", query_vec: vector});
+        endpoints.push({ x: newX2, y: newY2, Y: luminance, flag: "medium", query_vec: vector });
+        endpoints.push({ x: newX3, y: newY3, Y: luminance, flag: "slow", query_vec: vector});
     }
 });
+
+
+console.log("fixedcolor: ", fixedColors)
 
 const duplicatedfixedColors = [];
 // one quicker, one slower
@@ -53,6 +52,8 @@ fixedColors.forEach(color => {
         duplicatedfixedColors.push({ ...color }); // Use the spread operator to copy the object
     }
 });
+
+console.log("duplicatedfixedColors: ", duplicatedfixedColors)
 
 let numPage = duplicatedfixedColors.length; // Increased granularity for the slider
 const duplicatedfixedColors_rgb = duplicatedfixedColors.map(color => {
@@ -68,7 +69,8 @@ for (let i = 0; i < endpoints.length; i++) {
     const endxyY = duplicatedfixedColors[i];
     const startxyY = endpoints[i];
     const flag = startxyY.flag;
-    colorPaths.push({ startxyY, endxyY, flag });
+    const query_vec = startxyY.query_vec
+    colorPaths.push({ startxyY, endxyY, flag, query_vec });
 }
 
 //////////////////////// Build Color Path2 ////////////////////////
@@ -306,17 +308,25 @@ function computeDistance(startxyY, endxyY) {
     return distance;
 }
 
+// Calculate point on direction vector at a certain distance
+function calculatePointOnDirection(x, y, angle, distance) {
+    const angleRadians = degreesToRadians(angle);
+    const newX = x + distance * Math.cos(angleRadians);
+    const newY = y + distance * Math.sin(angleRadians);
+    return { newX, newY };
+}
+
+
 function submitColor(actionType) {
     const slider = document.getElementById("color-slider");
 
     let currentPath = shuffledColorPaths[currentPage - 1];
-    console.log("Current Path: ", currentPath); // Log the current path for debugging
-    let query_vec = computeQueryVector(currentPath.endxyY, currentPath.startxyY);
     let gamma = computeDistance(currentPath.endxyY, currentxyY);
 
     let fixedColorxyY = currentPath.endxyY;
     let startColorxyY = currentPath.startxyY;
     let flag = currentPath.flag;  // Include flag in the data
+    let query_vec = currentPath.query_vec
     let pageId = getPageId();
 
     let data;
@@ -412,8 +422,6 @@ function interpolateColor(t, page) {
         B: parseRGB(XYZtoRGB(X, newY, Z))[2]
     };
 }
-
-
 
 
 

@@ -17,36 +17,78 @@ def load_data(filename):
         data = json.load(file)
     return data
 
+
 def divide_data_by_flag(data):
-    """Divide data into three sets based on the 'flag' value."""
     fast_data = {}
     medium_data = {}
     slow_data = {}
 
-    for page_id, values in data.items():
-
-        flag = values['endColor']['flag']
+    for page_id, details in data.items():
+        flag = details['endColor']['flag']
+        
+        # Constructing a unique key from both fixedColor and query_vec
+        fixed = (details['fixedColor']['x'], details['fixedColor']['y'])
+        query = (details['query_vec']['x'], details['query_vec']['y'], details['query_vec']['Y'])
+        unique_key = (fixed, query)
+        
         if flag == 'fast':
-            fast_data[page_id] = values
+            fast_data[unique_key] = details
         elif flag == 'medium':
-            medium_data[page_id] = values
+            medium_data[unique_key] = details
+        elif flag == 'slow':
+            slow_data[unique_key] = details
         else:
-            slow_data[page_id] = values
+            print(f"Unexpected flag value: {flag} for page_id {page_id}")
 
     return fast_data, medium_data, slow_data
 
-def subtract_lists(l1, l2):
-    l3 = l1.copy()
-    for item in l2:
-        if item in l3:
-            l3.remove(item)
-    return l3
+# def check_key_completeness(fast_data, medium_data, slow_data):
+#     fast_keys = set(fast_data.keys())
+#     medium_keys = set(medium_data.keys())
+#     slow_keys = set(slow_data.keys())
+
+#     all_keys = fast_keys | medium_keys | slow_keys
+
+#     if not (fast_keys == medium_keys == slow_keys):
+#         print("Mismatch in keys across datasets")
+#         if fast_keys != medium_keys:
+#             print("Differences between fast and medium:", fast_keys.symmetric_difference(medium_keys))
+#         if fast_keys != slow_keys:
+#             print("Differences between fast and slow:", fast_keys.symmetric_difference(slow_keys))
+#         if medium_keys != slow_keys:
+#             print("Differences between medium and slow:", medium_keys.symmetric_difference(slow_keys))
+#     else:
+#         print("All datasets have the same keys.")
+
+
+def subtract_lists(dict1, dict2):
+    result = {}
+
+    for key, value1 in dict1.items():
+        if key in dict2:
+            value2 = dict2[key]
+            result[key] = value1 - value2
+
+    return result
+
+
+def merge_by_first_key_element(dictionary):
+    aggregated_results = {}
+    for key, values in dictionary.items():
+        first_key_element = key[0]  
+
+        if first_key_element not in aggregated_results:
+            aggregated_results[first_key_element] = []
+
+        aggregated_results[first_key_element].append(values)
+
+    return aggregated_results
 
 def metric_est_and_ellipse_plot(data, thresh: float = 1e-3, num_meas: int = 10, max_iter: int = 10000, flag: str = ""):
     
     est_out = []
     data_points = {}
-    gamma_squared = []
+    gamma_squared = {}
 
     fig, ax = plt.subplots() 
     Sig_hat = cp.Variable((2,2), PSD=True)
@@ -54,15 +96,26 @@ def metric_est_and_ellipse_plot(data, thresh: float = 1e-3, num_meas: int = 10, 
     i = 0
     for _, details in data.items():
 
-        gamma = details['gamma']
-        if flag == "slow":
-            gamma_squared.append(gamma**2)
-        elif flag == "median":
-            gamma_squared.append(4*gamma**2)
-        else: 
-            gamma_squared.append((1/0.33*gamma)**2)
         fixed = (details['fixedColor']['x'], details['fixedColor']['y'])
+        gamma = details['gamma']
+        query = (details['query_vec']['x'], details['query_vec']['y'], details['query_vec']['Y'])
+        flag = details['endColor']['flag']
+        key = (fixed, query)
+        if key not in gamma_squared:
+            gamma_squared[key] = None
 
+        if flag == "slow":
+            gamma_squared[key] = gamma**2
+        elif flag == "medium":
+            gamma_squared[key] = 4*gamma**2
+        elif flag == "fast":
+            gamma_squared[key] = (1/0.33*gamma)**2
+        else:
+            print(f"Unhandled flag {flag}")
+
+        # for key in gamma_squared:
+        #     print(f"Generated key: {key} for flag {flag}")
+        
         a_x = details['query_vec']['x']
         a_y = details['query_vec']['y']
         a = np.array([a_x, a_y])
@@ -87,12 +140,6 @@ def metric_est_and_ellipse_plot(data, thresh: float = 1e-3, num_meas: int = 10, 
         
         i += 1
 
-    # print(data_points)
-    # print(gammas_collect)
-    # for ref_pt in center_points:
-        
-    #     gamma_values = gammas_collect[ref_pt]
-    #     variance_collect.append(np.var(gamma_values))
 
     for j in range(4):
         obj = cp.Minimize(losses[j])
@@ -103,17 +150,8 @@ def metric_est_and_ellipse_plot(data, thresh: float = 1e-3, num_meas: int = 10, 
         while prob.status != cp.OPTIMAL and ct < len(solvers):
             prob.solve(solver=solvers[ct], max_iters = max_iter)
             ct += 1
-        # print(f'Tried {ct + 1} solvers, status {prob.status}')
+
         est_out.append(Sig_hat.value)
-
-    # # plotting
-    # for center in center_points:
-    #     ax.scatter(center[0], center[1], c='blue', marker='o', s=50, label='Center Points' if center == center_points[0] else "")
-
-    # # Plot corresponding data points around each center point in red
-    # for center, points in data_points.items():
-    #     ax.scatter([p[0] for p in points], [p[1] for p in points], c='red', marker='x',label='Data Points' if center == center_points[0] else "")
-
 
     for i in range(len(center_points)):
         plot_cov_ellipse(est_out[i], center_points[i], data_points[tuple(center_points[i])], nstd=0.3, ax=ax, edgecolor='red', facecolor='none')
@@ -136,29 +174,31 @@ def metric_est_and_ellipse_plot(data, thresh: float = 1e-3, num_meas: int = 10, 
 
 # Main execution
 if __name__ == "__main__":
-    data = load_data('ui_local/data/color_data_lorraine3.json')
+    data = load_data('ui_local/data/color_data.json')
     fast_data, medium_data, slow_data = divide_data_by_flag(data)
+    # check_key_completeness(fast_data, medium_data, slow_data)
+
 
     gamma_squared_1 = metric_est_and_ellipse_plot(fast_data, flag = "fast")
-    gamma_squared_2 = metric_est_and_ellipse_plot(medium_data, flag = "median")
+    gamma_squared_2 = metric_est_and_ellipse_plot(medium_data, flag = "medium")
     gamma_squared_3 = metric_est_and_ellipse_plot(slow_data, flag = "slow")
 
-    print("gamma_squared_1: ", gamma_squared_1)
-    print("gamma_squared_2: ", gamma_squared_2)
-    print("gamma_squared_3: ", gamma_squared_3)
 
     seq1 = subtract_lists(gamma_squared_1, gamma_squared_2)
     seq2 = subtract_lists(gamma_squared_2, gamma_squared_3)
 
-    mean_value_1 = statistics.mean(seq1)
-    variance_value1 = statistics.variance(seq1) 
-    mean_value_2 = statistics.mean(seq2)
-    variance_value2 = statistics.variance(seq2) 
 
-    print("mean value for seq 1: ", mean_value_1)
-    print("mean value for seq 2: ", mean_value_2)
-    print("variance for seq 1: ", variance_value1)
-    print("variance for seq 2: ", variance_value2)
+    merged_seq1 = merge_by_first_key_element(seq1)
+    merged_seq2 = merge_by_first_key_element(seq2)
+    # print("seq1: ", merged_seq1)
+    # print("seq2: ", merged_seq2)
+
+    statistics1 = {key: {"mean": np.mean(values), "variance": np.var(values)} for key, values in merged_seq1.items()}
+    statistics2 = {key: {"mean": np.mean(values), "variance": np.var(values)} for key, values in merged_seq2.items()}
+
+    print("mean value for seq 1: ", statistics1)
+    print("mean value for seq 2: ", statistics2)
+
     
 
 
