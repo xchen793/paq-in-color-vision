@@ -174,19 +174,19 @@ def estimate_metric(responses: dict, thresh: float = 1, query_type: str = 'paq',
                 #loss = cp.sum(cp.pos( thresh - cp.multiply(labels, (cp.vec(Sig_hat) @ feat_flat_n))) ) / num_meas #+ 0.1 * cp.norm(Sig_hat, 'fro')
 
 
-            obj = cp.Minimize(loss)
-            prob = cp.Problem(obj)
+        obj = cp.Minimize(loss)
+        prob = cp.Problem(obj)
 
-            prob.solve(solver=cp.SCS, max_iters = max_iter)
-            ct = 1
-            while prob.status != cp.OPTIMAL and ct < len(solvers):
-                prob.solve(solver=solvers[ct], max_iters = max_iter)
-                ct += 1
-            
-            #print(f'Tried {ct + 1} solvers, status {prob.status}')
-            
-            est = Sig_hat.value
-            est_out[n] = est
+        prob.solve(solver=cp.SCS, max_iters = max_iter)#, verbose=True)
+        ct = 1
+        while prob.status != cp.OPTIMAL and ct < len(solvers):
+            prob.solve(solver=solvers[ct], max_iters = max_iter)
+            ct += 1
+        
+        #print(f'Tried {ct + 1} solvers, status {prob.status}')
+        
+        est = Sig_hat.value
+        est_out[n] = est
     
     return est_out
 

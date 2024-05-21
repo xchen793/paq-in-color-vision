@@ -12,8 +12,8 @@ from collections import defaultdict
 
 from utils import *
 
-MAX_RETRIES = 20
-STOP_THRESH = 3
+MAX_RETRIES = 30
+STOP_THRESH = 5
 NUM_TRIALS = 20
 VIABLE_QUERY_TYPES = ['paq', 'paq_noisy_low', 'paq_noisy_med', 'paq_noisy_high', 'paired_comparison', 'triplet']
 
@@ -28,6 +28,7 @@ def run_one_exp() -> None:
     num_meas = 250
     query_type = 'paq'
     gt_out = generate_gt(num_ref, eigenvalue_gap)
+    print('Generated GT')
     thresh = 5
     noise_frac = 0
     normalize = False
@@ -35,8 +36,10 @@ def run_one_exp() -> None:
 
     # From GT values, generate measurements
     meas_out = generate_measurements(num_meas, gt_out, query_type=query_type, thresh=thresh, noise_frac=noise_frac)
+    print('Generated metric')
     # Use queries to estimate metrics
     est_out = estimate_metric(meas_out, query_type=query_type, thresh=thresh)
+    print('Estimated metrics')
     print(est_out)
 
     # for k, v in est_out.items():
@@ -106,7 +109,7 @@ def run_sweep(config: dict, dir: str, plot_only: bool = False) -> str:
         elif 'med' in query_type:
             noise_frac = 0.5
         elif 'high' in query_type:
-            noise_frac = 1
+            noise_frac = 0.75
         else:
             noise_frac = 0
 
@@ -129,11 +132,10 @@ def run_sweep(config: dict, dir: str, plot_only: bool = False) -> str:
 
             for mc in range(NUM_TRIALS):
                 if (mc + 1) % 5 == 0:
-                    print(f'Processed {mc + 1} / {NUM_TRIALS} \t | err so far = {np.average(err_mc)} \t | fails so far = {np.average(num_fails_mc)} \t | const so far = {np.average(best_const_mc)}')
+                    print(f'Processed {mc + 1} / {NUM_TRIALS} \t | err so far = {np.average(err_mc):.4f} \t | fails so far = {np.average(num_fails_mc):.4f} \t | const so far = {np.average(best_const_mc):.4f}')
 
                 # Generate ground truth values
                 gt_out = generate_gt(num_ref, eigenvalue_gap)
-
                 # From GT values, generate measurements
                 meas_out = generate_measurements(num_meas, gt_out, query_type=query_type, thresh=thresh, noise_frac=noise_frac)
 
@@ -199,7 +201,8 @@ def run_sweep(config: dict, dir: str, plot_only: bool = False) -> str:
                 best_const_mc.append(best_const)
                 #print(f'Best performance had {num_fails_best} / {2*num_ref} violated constraints')
 
-            print(f'Finished sweep, avg err = {np.average(err_mc)} |\t avg fails = {np.average(num_fails_mc)} |\t best const: {np.average(best_const_mc)} |\t stop: {stop_sign}')
+            print(f'Finished sweep, avg err = {np.average(err_mc):.4f} |\t avg fails = {np.average(num_fails_mc):.4f} |\t best const: {np.average(best_const_mc):.4f} |\t stop: {stop_sign}')
+            print('--------')
             res_query[sweep_var] = {
                 'err': [np.average(err_mc), np.std(err_mc) / NUM_TRIALS, err_mc],
                 'fails' : [np.average(num_fails_mc), np.std(num_fails_mc) / NUM_TRIALS, num_fails_mc],
@@ -216,7 +219,7 @@ def run_sweep(config: dict, dir: str, plot_only: bool = False) -> str:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Run different types of sweeps.")
 
-    parser.add_argument("config", type=str, help="Filepath to JSON configuration file")
+    parser.add_argument("config", type=str, default='', help="Filepath to JSON configuration file")
     parser.add_argument("-test_sweep", action='store_true', help = "Bypass sweep, run test sweep")
     parser.add_argument("-plot", action='store_true', help = "Bypass sweep, plot figure")
     parser.add_argument("-plot_file", type=str, default='', help='Filepath to sweep output JSON to plot')
