@@ -1,54 +1,57 @@
+//////////////////////// Fields /////////////////////////
 const luminance = 0.5;
 const targetDistance = 0.05;
-const numberOfDirections = 10;
+const numberOfDirections = 4;
 const angleIncrement = 360 / numberOfDirections;
 const max = 1; // slider threshold
 const min = 0.7; // slider threshold
 const numAddedpoints = 10;
+const numSliderspeed = 2;
+const repetition = 10;
 
 let currentPage = 1;
 let totalsliderValue = 100;
 let threshold = 0.9;
 let currentxyY = { x: 0, y: 0, Y: luminance };
 
-// fixed colors in RGB for path 1
+// reference colors
 const fixedColors = [
     { x: 0.25, y: 0.34, Y: luminance },
-    { x: 0.29, y: 0.40, Y: luminance },
-    { x: 0.37, y: 0.40, Y: luminance },
-    { x: 0.35, y: 0.35, Y: luminance }
+    { x: 0.29, y: 0.40, Y: luminance }
+    // { x: 0.37, y: 0.40, Y: luminance },
+    // { x: 0.35, y: 0.35, Y: luminance }
 ];
 
-// Convert degrees to radians
-function degreesToRadians(degrees) {
-    return degrees * (Math.PI / 180);
-}
 
 
-// endpoints 
+// start points for each path 
 const endpoints = [];
 fixedColors.forEach(color => {
-    // Retrieve the key for this color
-    let colorKey = `x${color.x}-y${color.y}-Y${color.Y}`;
     for (let i = 0; i < numberOfDirections; i++) {
         const angle = i * angleIncrement;
         const { newX: newX1, newY: newY1 } = calculatePointOnDirection(color.x, color.y, angle, targetDistance);
         const { newX: newX2, newY: newY2 } = calculatePointOnDirection(color.x, color.y, angle, 0.5 * targetDistance);
-        const { newX: newX3, newY: newY3 } = calculatePointOnDirection(color.x, color.y, angle, 0.33 * targetDistance);
-        const vector = computeQueryVector({ x: newX1, y: newY1, Y: color.Y }, color);
-        endpoints.push({ x: newX1, y: newY1, Y: luminance, flag: "fast", query_vec: vector});
-        endpoints.push({ x: newX2, y: newY2, Y: luminance, flag: "medium", query_vec: vector });
-        endpoints.push({ x: newX3, y: newY3, Y: luminance, flag: "slow", query_vec: vector});
+        const vector1 = computeQueryVector(color, { x: newX1, y: newY1, Y: color.Y }); // unit vector
+        // Scaling vector1 by 0.5
+        let halfVector = {
+            x: 0.5 * vector1.x,
+            y: 0.5 * vector1.y,
+            Y: 0.5 * vector1.Y
+        };
+        for (let i = 0; i < repetition; i++){
+            endpoints.push({ x: newX1, y: newY1, Y: luminance, flag: "fast", query_vec: vector1});
+            endpoints.push({ x: newX2, y: newY2, Y: luminance, flag: "slow", query_vec: halfVector});
+        }
     }
 });
 
-
 console.log("fixedcolor: ", fixedColors)
+console.log("endpoints: ", endpoints)
 
 const duplicatedfixedColors = [];
 // one quicker, one slower
 fixedColors.forEach(color => {
-    for (let i = 0; i < 3 * numberOfDirections; i++) {
+    for (let i = 0; i < numSliderspeed * numberOfDirections * repetition; i++) {
         duplicatedfixedColors.push({ ...color }); // Use the spread operator to copy the object
     }
 });
@@ -280,6 +283,11 @@ function getPageId() {
     return pageId;
 }
 
+function degreesToRadians(degrees) {
+    return degrees * (Math.PI / 180);
+}
+
+// generate a unit vector from startxyY to endxyY
 function computeQueryVector(startxyY, endxyY) {
     if (!startxyY || !endxyY) {
         console.error('Invalid start or end xyY data.');
@@ -288,24 +296,36 @@ function computeQueryVector(startxyY, endxyY) {
     const dx = endxyY.x - startxyY.x;
     const dy = endxyY.y - startxyY.y;
     const dY = endxyY.Y - startxyY.Y;
-    const mag = Math.sqrt(dx * dx + dy * dy + dY * dY);
+
+    const distance = Math.sqrt(dx * dx + dy * dy + dY * dY);
     return {
-        x: dx / mag,
-        y: dy / mag,
-        Y: dY / mag
+        x: dx / distance,
+        y: dy / distance,
+        Y: dY / distance
     };
 }
 
-function computeDistance(startxyY, endxyY) {
+function computeDistance(startxyY, endxyY, vectorA) {
     if (!startxyY || !endxyY) {
         console.error('Invalid start or end xyY data.');
         return null;
     }
     const dx = endxyY.x - startxyY.x;
     const dy = endxyY.y - startxyY.y;
-    const dY = endxyY.Y - startxyY.Y;
-    const distance = Math.sqrt(dx * dx + dy * dy + dY * dY);
-    return distance;
+
+    let distancex = dx / vectorA.x;
+    let distancey = dy / vectorA.y;
+
+    if (Number.isNaN(distancex) && Number.isNaN(distancey)) {
+        return null; // Both distances are invalid
+    } else if (Number.isNaN(distancex)) {
+        return distancey; // Only distancey is valid
+    } else if (Number.isNaN(distancey)) {
+        return distancex; // Only distancex is valid
+    } else {
+        return (distancex + distancey) / 2; // Both are valid, return average
+    }
+    
 }
 
 // Calculate point on direction vector at a certain distance
@@ -321,7 +341,10 @@ function submitColor(actionType) {
     const slider = document.getElementById("color-slider");
 
     let currentPath = shuffledColorPaths[currentPage - 1];
-    let gamma = computeDistance(currentPath.endxyY, currentxyY);
+    console.log("currentPath.endxyY: ", currentPath.endxyY)
+    console.log("currentxyY: ", currentxyY)
+    console.log("currentPath.query_vec: ", currentPath.query_vec)
+    let gamma = computeDistance(currentPath.endxyY, currentxyY, currentPath.query_vec); //reference point; current point; va
 
     let fixedColorxyY = currentPath.endxyY;
     let startColorxyY = currentPath.startxyY;
@@ -330,26 +353,15 @@ function submitColor(actionType) {
     let pageId = getPageId();
 
     let data;
+    data = {
+        pageId: pageId,
+        query_vec: query_vec,
+        gamma: gamma,
+        fixedColor: fixedColorxyY,
+        endColor: startColorxyY,
+        flag: flag  // Include flag in the data
+    };
 
-    if (actionType === 'noMatch') {
-        data = {
-            pageId: pageId,
-            query_vec: query_vec,
-            gamma: null,
-            fixedColor: fixedColorxyY,
-            startColor: startColorxyY,
-            flag: flag  // Include flag in the data
-        };
-    } else {
-        data = {
-            pageId: pageId,
-            query_vec: query_vec,
-            gamma: gamma,
-            fixedColor: fixedColorxyY,
-            endColor: startColorxyY,
-            flag: flag  // Include flag in the data
-        };
-    }
 
     fetch(`/submit-color`, {
         method: 'POST',

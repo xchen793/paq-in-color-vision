@@ -2,12 +2,11 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 import cvxpy as cp
-import statistics
-from sklearn.linear_model import HuberRegressor, RANSACRegressor, TheilSenRegressor
-from utilities import plot_cov_ellipse, euclidean_distance, ellipse_point
+from matplotlib.patches import Ellipse
+import matplotlib.patches as mpatches
 
 solvers = [cp.SCS, cp.CVXOPT]
-
+name = "L"
 
 center_points = [(0.25, 0.34), (0.29, 0.40), (0.37, 0.40), (0.35, 0.35)]
 
@@ -61,30 +60,67 @@ def divide_data_by_flag(data):
 #         print("All datasets have the same keys.")
 
 
-def subtract_lists(dict1, dict2):
-    result = {}
-
-    for key, value1 in dict1.items():
-        if key in dict2:
-            value2 = dict2[key]
-            result[key] = value1 - value2
-
-    return result
+def plot_cov_ellipse(cov, center, data_points, nstd=2, ax=None, **kwargs):
+    """Plot an ellipse representing the covariance matrix."""
+    if ax is None:
+        fig, ax = plt.subplots()
 
 
-def merge_by_first_key_element(dictionary):
-    aggregated_results = {}
-    for key, values in dictionary.items():
-        first_key_element = key[0]  
+    # Ensure there are data points to process
+    if data_points:
+        data_x, data_y = zip(*data_points)  # Unzip data points
+        ax.scatter(data_x, data_y, c='orange', marker='x', label='PAQ queries')
+    else:
+        print("Warning: No data points provided.")
 
-        if first_key_element not in aggregated_results:
-            aggregated_results[first_key_element] = []
+    ax.scatter(center[0], center[1], c='blue', marker='o', s=20, label='Reference points')
+    # Calculate eigenvalues and eigenvectors
+    vals, vecs = np.linalg.eigh(cov)
+    order = vals.argsort()[::-1]
+    vals = vals[order]
+    vecs = vecs[:, order]
 
-        aggregated_results[first_key_element].append(values)
+    # Eigenvalue check
+    if np.all(vals < 1e-10):
+        print("Warning: Very small eigenvalues; ellipse might be too small to see.")
+    
+    theta = np.degrees(np.arctan2(*vecs[:, 0][::-1]))
+    width, height = 2 * nstd * np.sqrt(vals)
+    print("Width:", width, "Height:", height)  # Debugging output
 
-    return aggregated_results
+    # # Check and adjust width and height if too small
+    # if width < 1e-2 or height < 1e-2:
+    #     print("Adjusting width/height for visibility.")
+    #     width = height = 0.1  # Default small value to make ellipse visible
 
-def metric_est_and_ellipse_plot(data, thresh: float = 1e-3, num_meas: int = 10, max_iter: int = 10000, flag: str = ""):
+    ellipse = Ellipse(xy=center, width=width, height=height, angle=theta, edgecolor='r', facecolor='none')
+
+    ax.add_patch(ellipse)
+    ax.set_aspect('equal')
+
+    # Create a proxy artist for the legend (use a red line for simplicity)
+    legend_proxy = mpatches.Patch(color='red', label='My Ellipse')
+
+    # Add legend using the proxy artist
+    ax.legend(handles=[legend_proxy])   
+
+
+    # Calculate endpoints of the major axis
+    elongation_factor = 3.8
+    angle_rad = np.radians(theta)
+    dx = width / 2 * np.cos(angle_rad) * elongation_factor  # Multiply dx by elongation factor
+    dy = width / 2 * np.sin(angle_rad) * elongation_factor  # Multiply dy by elongation factor
+    
+    # Define points for the major axis line
+    x1, y1 = center[0] - dx, center[1] - dy
+    x2, y2 = center[0] + dx, center[1] + dy
+
+    # Add line for the major axis
+    ax.plot([x1, x2], [y1, y2], 'red', linestyle='--', label="Major Axis")
+
+    return ax
+
+def metric_est_and_ellipse_plot(data, thresh: float = 5 * 1e-4, num_meas: int = 10, max_iter: int = 10000, flag: str = ""):
     
     est_out = []
     data_points = {}
@@ -99,22 +135,11 @@ def metric_est_and_ellipse_plot(data, thresh: float = 1e-3, num_meas: int = 10, 
         fixed = (details['fixedColor']['x'], details['fixedColor']['y'])
         gamma = details['gamma']
         query = (details['query_vec']['x'], details['query_vec']['y'], details['query_vec']['Y'])
-        flag = details['endColor']['flag']
+        # flag = details['endColor']['flag']
         key = (fixed, query)
         if key not in gamma_squared:
             gamma_squared[key] = None
 
-        if flag == "slow":
-            gamma_squared[key] = gamma**2
-        elif flag == "medium":
-            gamma_squared[key] = 4*gamma**2
-        elif flag == "fast":
-            gamma_squared[key] = (1/0.33*gamma)**2
-        else:
-            print(f"Unhandled flag {flag}")
-
-        # for key in gamma_squared:
-        #     print(f"Generated key: {key} for flag {flag}")
         
         a_x = details['query_vec']['x']
         a_y = details['query_vec']['y']
@@ -168,39 +193,14 @@ def metric_est_and_ellipse_plot(data, thresh: float = 1e-3, num_meas: int = 10, 
     by_label = dict(zip(labels, handles))
     ax.legend(by_label.values(), by_label.keys())
     ax.grid()
-    plt.show()
+    ax.set_title(f"Normal trichromat {name} ellipse plot")
+    plt.savefig(f'{name}_elliipse.png', format='png', dpi=300)
 
     return gamma_squared
 
 # Main execution
 if __name__ == "__main__":
-    data = load_data('ui_local/data/color_data.json')
-    fast_data, medium_data, slow_data = divide_data_by_flag(data)
+    data = load_data('ui_local/data/prev/color_data_lorraine.json')
+    # fast_data, medium_data, slow_data = divide_data_by_flag(data)
     # check_key_completeness(fast_data, medium_data, slow_data)
-
-
-    gamma_squared_1 = metric_est_and_ellipse_plot(fast_data, flag = "fast")
-    gamma_squared_2 = metric_est_and_ellipse_plot(medium_data, flag = "medium")
-    gamma_squared_3 = metric_est_and_ellipse_plot(slow_data, flag = "slow")
-
-
-    seq1 = subtract_lists(gamma_squared_1, gamma_squared_2)
-    seq2 = subtract_lists(gamma_squared_2, gamma_squared_3)
-
-
-    merged_seq1 = merge_by_first_key_element(seq1)
-    merged_seq2 = merge_by_first_key_element(seq2)
-    # print("seq1: ", merged_seq1)
-    # print("seq2: ", merged_seq2)
-
-    statistics1 = {key: {"mean": np.mean(values), "variance": np.var(values)} for key, values in merged_seq1.items()}
-    statistics2 = {key: {"mean": np.mean(values), "variance": np.var(values)} for key, values in merged_seq2.items()}
-
-    print("mean value for seq 1: ", statistics1)
-    print("mean value for seq 2: ", statistics2)
-
-    
-
-
-
-
+    metric_est_and_ellipse_plot(data)
