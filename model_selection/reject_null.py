@@ -72,21 +72,22 @@ def merge_by_first_key_element(dictionary):
     return aggregated_results
 
 def store_noise_by_keys(data, thresh: float = 1, num_meas: int = 10):
-    gamma_dict = {} #store the gamma
+    gamma_inv_dict = {} #store the gamma
     i = 0
     for _, details in data.items():
         fixed = (details['fixedColor']['x'], details['fixedColor']['y'])
         query = (details['query_vec']['x'], details['query_vec']['y'], details['query_vec']['Y'])
         key = (fixed, query)
         
-        if key not in gamma_dict:
+        if key not in gamma_inv_dict:
             i += 1
-            gamma_dict[key] = []
+            gamma_inv_dict[key] = []
 
         gamma = details['gamma']
-        gamma_dict[key].append(gamma)
+        gamma_sq_inv = 1 / (gamma**2)
+        gamma_inv_dict[key].append(gamma_sq_inv)
 
-    return gamma_dict
+    return gamma_inv_dict
 
 
 # Main execution
@@ -115,24 +116,24 @@ if __name__ == "__main__":
         std_slow_gamma[key] = np.std(gamma_list)
         var_slow_gamma[key] = np.var(gamma_list)
 
-    print("------------------mean_fast_gamma-------------------") 
+    print("------------------mean_fast_beta(1/gamma^2)-------------------") 
     for key, value in mean_fast_gamma.items():
-        print("{}: {:.3f} x 10^-3".format(key, value * 1000))
-    print("------------------mean_slow_gamma-------------------")
+        print("{}: {}".format(key, value))
+    print("------------------mean_slow_beta(1/gamma^2)-------------------")
     for key, value in mean_slow_gamma.items():
-        print("{}: {:.3f} x 10^-3".format(key, value * 1000))
-    print("------------------std_fast_gamma-------------------")
+        print("{}: {}".format(key, value))
+    print("------------------std_fast_beta(1/gamma^2)-------------------")
     for key, value in std_fast_gamma.items():
-        print("{}: {:.3f} x 10^-3".format(key, value * 1000))
-    print("------------------std_slow_gamma-------------------")
+        print("{}: {}".format(key, value))
+    print("------------------std_slow_beta(1/gamma^2)-------------------")
     for key, value in std_slow_gamma.items():
-        print("{}: {:.3f} x 10^-3".format(key, value * 1000))
-    print("------------------var_fast_gamma-------------------")
+        print("{}: {}".format(key, value))
+    print("------------------var_fast_beta(1/gamma^2)-------------------")
     for key, value in var_fast_gamma.items():
-        print("{}: {:.3f} x 10^-3".format(key, value * 1000))
-    print("------------------var_slow_gamma-------------------")
+        print("{}: {}".format(key, value))
+    print("------------------var_slow_beta(1/gamma^2)-------------------")
     for key, value in var_slow_gamma.items():
-        print("{}: {:.3f} x 10^-3".format(key, value * 1000))
+        print("{}: {}".format(key, value))
 
     
 
