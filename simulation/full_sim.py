@@ -238,12 +238,13 @@ if __name__ == '__main__':
             fpath = run_sweep(config_data, dir, plot_only=args.plot)
         else:
             fpath = args.plot_file
-
+        
+        save_path = '/'.join(fpath.split('/')[:-1])
         if sweep_type == "meas":
-            save_name = 'meas_sweep.pdf'
+            save_name = "meas_sweep.pdf"
         elif sweep_type == 'gap':
-            save_name = 'gap_sweep.pdf'
+            save_name = "gap_sweep.pdf"
         elif sweep_type == 'ref':
-            save_name = 'ref_sweep.pdf'
+            save_name = "ref_sweep.pdf"
 
-        plot_figure(fpath, save_name, sweep_type)
+        plot_figure(fpath, save_path, save_name, sweep_type)

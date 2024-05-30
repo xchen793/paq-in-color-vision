@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
 import scipy as sp
 import cvxpy as cp
@@ -14,6 +15,10 @@ from sklearn.decomposition import PCA
 
 np.random.seed(2024)
 solvers = [cp.SCS]
+
+font = {'size'   : 14}
+
+matplotlib.rc('font', **font)
 
 # forward model
 def generate_gt(n_ref: int, eigenvalue_gap: int) -> dict:
@@ -367,7 +372,7 @@ def get_label(query_name: str) -> str:
     elif query_name == 'paq_noisy_high':
         return 'PAQ (high noise)'
     elif query_name == 'paired_comparison':
-        return 'Paired comparison (noiseless)'
+        return 'Paired comparison\n(noiseless)'
     elif query_name == 'triplet':
         return 'Triplet (noiseless)'
     
@@ -379,11 +384,13 @@ def get_x_axis_label(sweep_type: str) -> str:
     elif sweep_type == 'ref':
         return 'Number of reference points'
 
-def plot_figure(fname: str, save_name: str, sweep_type: str) -> None:
+def plot_figure(fname: str, save_path: str, save_name: str, sweep_type: str) -> None:
     with open(fname, 'r') as f:
         res = json.load(f)
-
+    
+    save_fpath = os.path.join(save_path, save_name)
     plt.figure(0)
+    plt.figure(figsize=(8, 6), dpi=80)
     for query_type, results in res.items():
         sweep_param = list(results.keys())
         sweep_param = sorted([int(i) for i in sweep_param])
@@ -398,13 +405,15 @@ def plot_figure(fname: str, save_name: str, sweep_type: str) -> None:
         plt.loglog(sweep_param, err_mean, label = get_label(query_type))
         plt.fill_between(sweep_param, err_std_low, err_std_high, alpha = 0.5)
     
-    plt.xlabel(get_x_axis_label(sweep_type))
-    plt.ylabel('Copunctal point estimation error')
-    plt.legend()
-    plt.savefig(save_name)
+    plt.xlabel(get_x_axis_label(sweep_type), fontsize=20)
+    plt.ylabel('Copunctal point estimation error', fontsize=20)
+    #plt.legend()
+    plt.legend(loc='best')#'right', bbox_to_anchor=(1, 0.32))
+    plt.savefig(save_fpath, bbox_inches = 'tight')
     plt.show()
 
     save_name = f'failure_rate_{save_name}'
+    save_fpath = os.path.join(save_path, save_name)
     plt.figure(1)
     for query_type, results in res.items():
         sweep_param = list(results.keys())
@@ -420,11 +429,11 @@ def plot_figure(fname: str, save_name: str, sweep_type: str) -> None:
         plt.plot(sweep_param, err_mean, label = get_label(query_type))
         plt.fill_between(sweep_param, err_std_low, err_std_high, alpha = 0.5)
     
-    plt.xlabel(get_x_axis_label(sweep_type))
-    plt.ylabel('Number of constraint violations')
+    plt.xlabel(get_x_axis_label(sweep_type), fontsize=24)
+    plt.ylabel('Number of constraint violations', fontsize=24)
     plt.ylim(0, 1)
     plt.legend()
-    plt.savefig(save_name)
+    plt.savefig(save_fpath, bbox_inches = 'tight')
     plt.show()
 
 
