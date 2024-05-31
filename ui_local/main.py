@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 import cvxpy as cp
 from matplotlib.patches import Ellipse
 import matplotlib.patches as mpatches
+import colour
+from matplotlib import colors as mcolors
+
 
 solvers = [cp.SCS, cp.CVXOPT]
 name = "L"
@@ -59,8 +62,13 @@ def divide_data_by_flag(data):
 #     else:
 #         print("All datasets have the same keys.")
 
+def get_person_label(person: str, idx: int) -> str:
+    if person == 'ashwin':
+        return 'Color blind user'
+    else:
+        return f'Color normal, user {idx}'
 
-def plot_cov_ellipse(cov, center, data_points, nstd=2, ax=None, **kwargs):
+def plot_cov_ellipse(cov, center, data_points, plot_color, person, idx, nstd=2, ax=None, **kwargs):
     """Plot an ellipse representing the covariance matrix."""
     if ax is None:
         fig, ax = plt.subplots()
@@ -69,7 +77,7 @@ def plot_cov_ellipse(cov, center, data_points, nstd=2, ax=None, **kwargs):
     # Ensure there are data points to process
     if data_points:
         data_x, data_y = zip(*data_points)  # Unzip data points
-        ax.scatter(data_x, data_y, c='orange', marker='x', label='PAQ queries')
+        #ax.scatter(data_x, data_y, c='orange', marker='x', label='PAQ queries')
     else:
         print("Warning: No data points provided.")
 
@@ -93,13 +101,13 @@ def plot_cov_ellipse(cov, center, data_points, nstd=2, ax=None, **kwargs):
     #     print("Adjusting width/height for visibility.")
     #     width = height = 0.1  # Default small value to make ellipse visible
 
-    ellipse = Ellipse(xy=center, width=width, height=height, angle=theta, edgecolor='r', facecolor='none')
+    ellipse = Ellipse(xy=center, width=width, height=height, angle=theta, edgecolor=plot_color, facecolor='none', label=get_person_label(person, idx))
 
     ax.add_patch(ellipse)
     ax.set_aspect('equal')
 
     # Create a proxy artist for the legend (use a red line for simplicity)
-    legend_proxy = mpatches.Patch(color='red', label='My Ellipse')
+    legend_proxy = mpatches.Patch(color=plot_color, label='My Ellipse')
 
     # Add legend using the proxy artist
     ax.legend(handles=[legend_proxy])   
@@ -116,91 +124,101 @@ def plot_cov_ellipse(cov, center, data_points, nstd=2, ax=None, **kwargs):
     x2, y2 = center[0] + dx, center[1] + dy
 
     # Add line for the major axis
-    ax.plot([x1, x2], [y1, y2], 'red', linestyle='--', label="Major Axis")
+    #ax.plot([x1, x2], [y1, y2], plot_color, linestyle='--')
 
     return ax
 
-def metric_est_and_ellipse_plot(data, thresh: float = 5 * 1e-4, num_meas: int = 10, max_iter: int = 10000, flag: str = ""):
-    
-    est_out = []
-    data_points = {}
-    gamma_squared = {}
+def metric_est_and_ellipse_plot(thresh: float = 5 * 1e-4, num_meas: int = 10, max_iter: int = 10000, flag: str = ""):
+    fig, ax = colour.plotting.plot_chromaticity_diagram_CIE1931(standalone=False)
 
-    fig, ax = plt.subplots() 
-    Sig_hat = cp.Variable((2,2), PSD=True)
-    losses = [0,0,0,0]
-    i = 0
-    for _, details in data.items():
+    # Load the JSON data from the file
+    people = ['ashwin', 'austin', 'jingyan', 'lorraine']
+    plot_colors = [mcolors.CSS4_COLORS['crimson'], mcolors.CSS4_COLORS['palegreen'], mcolors.CSS4_COLORS['forestgreen'], mcolors.CSS4_COLORS['darkgreen']]
+    for idx, (person, plot_color) in enumerate(zip(people, plot_colors)): 
+        data = load_data(f'./data/prev/color_data_{person}.json')
 
-        fixed = (details['fixedColor']['x'], details['fixedColor']['y'])
-        gamma = details['gamma']
-        query = (details['query_vec']['x'], details['query_vec']['y'], details['query_vec']['Y'])
-        # flag = details['endColor']['flag']
-        key = (fixed, query)
-        if key not in gamma_squared:
-            gamma_squared[key] = None
+        est_out = []
+        data_points = {}
+        gamma_squared = {}
 
+        #fig, ax = plt.subplots() 
+        Sig_hat = cp.Variable((2,2), PSD=True)
+        losses = [0,0,0,0]
+        i = 0
+        for _, details in data.items():
+
+            fixed = (details['fixedColor']['x'], details['fixedColor']['y'])
+            gamma = details['gamma']
+            query = (details['query_vec']['x'], details['query_vec']['y'], details['query_vec']['Y'])
+            # flag = details['endColor']['flag']
+            key = (fixed, query)
+            if key not in gamma_squared:
+                gamma_squared[key] = None
+
+            
+            a_x = details['query_vec']['x']
+            a_y = details['query_vec']['y']
+            a = np.array([a_x, a_y])
+            feature_matrix = gamma * np.outer(a, a)
+
+            data_x = fixed[0] + gamma * a_x
+            data_y = fixed[1] + gamma * a_y
+
+            if fixed not in data_points: 
+                data_points[fixed] = []
+            data_points[fixed].append((data_x, data_y))
+
+
+            if i < 10:
+                losses[0] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
+            elif i < 20:
+                losses[1] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
+            elif i < 30:
+                losses[2] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
+            else:
+                losses[3] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
+            
+            i += 1
+
+
+        for j in range(4):
+            obj = cp.Minimize(losses[j])
+            prob = cp.Problem(obj)
+            prob.solve(solver=cp.SCS, max_iters = max_iter)
+
+            ct = 1
+            while prob.status != cp.OPTIMAL and ct < len(solvers):
+                prob.solve(solver=solvers[ct], max_iters = max_iter)
+                ct += 1
+
+            est_out.append(Sig_hat.value)
+
+        for i in range(len(center_points)):
+            plot_cov_ellipse(est_out[i], center_points[i], data_points[tuple(center_points[i])], plot_color, person, idx, nstd=0.5, ax=ax, edgecolor=plot_color, facecolor='none')
+
+        # Set plot limits based on the range of data points and centers
+        all_points = [point for sublist in data_points.values() for point in sublist] + center_points
+        all_x = [point[0] for point in all_points]
+        all_y = [point[1] for point in all_points]
         
-        a_x = details['query_vec']['x']
-        a_y = details['query_vec']['y']
-        a = np.array([a_x, a_y])
-        feature_matrix = gamma * np.outer(a, a)
+        #ax.set_xlim(min(all_x) - 0.1, max(all_x) + 0.1)
+        #ax.set_ylim(min(all_y) - 0.1, max(all_y) + 0.1)
+        ax.set_xlim(0, 0.8)
+        ax.set_ylim(0, 0.9)
 
-        data_x = fixed[0] + gamma * a_x
-        data_y = fixed[1] + gamma * a_y
-
-        if fixed not in data_points: 
-            data_points[fixed] = []
-        data_points[fixed].append((data_x, data_y))
-
-
-        if i < 10:
-            losses[0] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
-        elif i < 20:
-            losses[1] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
-        elif i < 30:
-            losses[2] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
-        else:
-            losses[3] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
-        
-        i += 1
-
-
-    for j in range(4):
-        obj = cp.Minimize(losses[j])
-        prob = cp.Problem(obj)
-        prob.solve(solver=cp.SCS, max_iters = max_iter)
-
-        ct = 1
-        while prob.status != cp.OPTIMAL and ct < len(solvers):
-            prob.solve(solver=solvers[ct], max_iters = max_iter)
-            ct += 1
-
-        est_out.append(Sig_hat.value)
-
-    for i in range(len(center_points)):
-        plot_cov_ellipse(est_out[i], center_points[i], data_points[tuple(center_points[i])], nstd=0.3, ax=ax, edgecolor='red', facecolor='none')
-
-    # Set plot limits based on the range of data points and centers
-    all_points = [point for sublist in data_points.values() for point in sublist] + center_points
-    all_x = [point[0] for point in all_points]
-    all_y = [point[1] for point in all_points]
-    
-    ax.set_xlim(min(all_x) - 0.1, max(all_x) + 0.1)
-    ax.set_ylim(min(all_y) - 0.1, max(all_y) + 0.1)
-
-    handles, labels = ax.get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    ax.legend(by_label.values(), by_label.keys())
-    ax.grid()
-    ax.set_title(f"Normal trichromat {name} ellipse plot")
-    plt.savefig(f'{name}_elliipse.png', format='png', dpi=300)
+        handles, labels = ax.get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        ax.legend(by_label.values(), by_label.keys())
+        ax.grid()
+        #ax.set_title(f"Normal trichromat {name} ellipse plot")
+    #plt.show()
+    plt.savefig(f'all_elliipse.png', format='png', dpi=300)
 
     return gamma_squared
 
 # Main execution
 if __name__ == "__main__":
-    data = load_data('ui_local/data/prev/color_data_lorraine.json')
+    
     # fast_data, medium_data, slow_data = divide_data_by_flag(data)
     # check_key_completeness(fast_data, medium_data, slow_data)
-    metric_est_and_ellipse_plot(data)
+    metric_est_and_ellipse_plot()
