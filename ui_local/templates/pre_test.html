@@ -144,9 +144,9 @@
     </style>
 </head>
 <body>
-    <h2>Color Path Slider</h2>
+    <h2>Pretest: Color Path Slider</h2>
     <div class="container">
-        <h3 class="left-aligned">Question 1: Color Match Experiment</h3>
+        <h3 class="left-aligned">Question: Color Match Experiment</h3>
         <div class="question">
             <div class="color-displays">
                 <div class="color-and-label" style="margin-top: 20px;">
@@ -155,8 +155,8 @@
                 </div>
                 <div class="vertical-line"></div>
                 <div class="color-and-label" style="margin-top: 20px;">
-                    <div id="color-display"></div>
-                    <span>Test color</span>
+                    <div id="additional-color-display"></div>
+                    <span>Test Color</span>
                 </div>
             </div>
             <div class="slider-container">
@@ -164,7 +164,7 @@
                 <div class="instruction">
                     Please slide the bar until the test color becomes similar to the reference color.
                 </div>
-                <!-- <div class="reminder">Reminder: answering this question accurately will give you a bonus.</div> -->
+                <div class="reminder">Reminder: answering this question accurately will give you a bonus.</div>
             </div>
         </div>
 
@@ -182,14 +182,48 @@
             <button id="next-page">Submit</button>
         </div>
     </div>
-</body>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Function to update slider background
+            function updateSliderBackground(slider) {
+                const value = slider.value;
+                const percentage = value / 100;
+                slider.style.background = `linear-gradient(to right, ${leftmostColor} ${percentage}%, ${refColor} ${percentage}%)`;
+            }
 
+            const leftmostColor = 'rgb(153, 144, 156)';
+            const refColor = 'rgb(184, 175, 178)';
+            const slider = document.getElementById('color-slider');
+            updateSliderBackground(slider);
 
+            document.getElementById('fixed-color-display').style.backgroundColor = refColor;
+            document.getElementById('additional-color-display').style.backgroundColor = leftmostColor;
 
+            document.getElementById('color-slider').addEventListener('input', function () {
+                const sliderValue = this.value / 100;
+                const adjustedColor = `rgb(${153 * (1 - sliderValue) + 184 * sliderValue}, ${144 * (1 - sliderValue) + 175 * sliderValue}, ${156 * (1 - sliderValue)+ 178 * sliderValue})`;
+                document.getElementById('additional-color-display').style.backgroundColor = adjustedColor;
+                updateSliderBackground(this);
+            });
 
+            document.getElementById('next-page').addEventListener('click', function () {
+                ///////////// If we want to store the data, uncomment the code below ///////////// 
+                const sliderValue = document.getElementById('color-slider').value;
+                //const confidenceValue = document.querySelector('input[name="confidence"]:checked') ? document.querySelector('input[name="confidence"]:checked').value : null;
 
-    
-    <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
+                const data = {
+                    sliderValue: sliderValue
+                    //confidenceValue: confidenceValue
+                };
+
+                // localStorage.setItem('surveyData', JSON.stringify(data));
+                // alert('Data saved: ' + JSON.stringify(data));
+
+                // //Redirect to the survey page with the appropriate page number
+                // window.location.href = '/survey?page=1'; 
+                window.location.href = '/model_rejection';
+            });
+        });
+    </script>
 </body>
 </html>
-

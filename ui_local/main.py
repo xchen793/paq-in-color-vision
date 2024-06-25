@@ -106,7 +106,7 @@ def plot_cov_ellipse(cov, center, data_points, nstd=2, ax=None, **kwargs):
 
 
     # Calculate endpoints of the major axis
-    elongation_factor = 3.8
+    elongation_factor = 14
     angle_rad = np.radians(theta)
     dx = width / 2 * np.cos(angle_rad) * elongation_factor  # Multiply dx by elongation factor
     dy = width / 2 * np.sin(angle_rad) * elongation_factor  # Multiply dy by elongation factor
@@ -120,13 +120,13 @@ def plot_cov_ellipse(cov, center, data_points, nstd=2, ax=None, **kwargs):
 
     return ax
 
-def metric_est_and_ellipse_plot(data, thresh: float = 5 * 1e-4, num_meas: int = 10, max_iter: int = 10000, flag: str = ""):
+def metric_est_and_ellipse_plot(data, thresh: float = 1e-3, num_meas: int = 20, max_iter: int = 10000, flag: str = ""):
     
     est_out = []
     data_points = {}
     gamma_squared = {}
 
-    fig, ax = plt.subplots() 
+    fig, ax = plt.subplots(figsize=(6, 5)) 
     Sig_hat = cp.Variable((2,2), PSD=True)
     losses = [0,0,0,0]
     i = 0
@@ -154,11 +154,11 @@ def metric_est_and_ellipse_plot(data, thresh: float = 5 * 1e-4, num_meas: int = 
         data_points[fixed].append((data_x, data_y))
 
 
-        if i < 10:
+        if i < 20:
             losses[0] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
-        elif i < 20:
+        elif i < 40:
             losses[1] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
-        elif i < 30:
+        elif i < 60:
             losses[2] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
         else:
             losses[3] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
@@ -186,21 +186,23 @@ def metric_est_and_ellipse_plot(data, thresh: float = 5 * 1e-4, num_meas: int = 
     all_x = [point[0] for point in all_points]
     all_y = [point[1] for point in all_points]
     
-    ax.set_xlim(min(all_x) - 0.1, max(all_x) + 0.1)
-    ax.set_ylim(min(all_y) - 0.1, max(all_y) + 0.1)
+    ax.set_xlim(0.12, 0.50)
+    ax.set_ylim(0.23, 0.53)
 
     handles, labels = ax.get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
-    ax.legend(by_label.values(), by_label.keys())
+    ax.legend(by_label.values(), by_label.keys(), loc='upper left', fontsize='x-large')
     ax.grid()
-    ax.set_title(f"Normal trichromat {name} ellipse plot")
-    plt.savefig(f'{name}_elliipse.png', format='png', dpi=300)
+    ax.set_xlabel("x", fontsize=14)
+    ax.set_ylabel("y", fontsize=14)
+    ax.set_title(f"Color blind D ellipse plot", fontsize=20)
+    plt.savefig(f'D_elliipse.png', format='png', dpi=300)
 
     return gamma_squared
 
-# Main execution
+
 if __name__ == "__main__":
-    data = load_data('ui_local/data/prev/color_data_lorraine.json')
+    data = load_data('ui_local/data/prev/color_data_ashwin.json')
     # fast_data, medium_data, slow_data = divide_data_by_flag(data)
     # check_key_completeness(fast_data, medium_data, slow_data)
     metric_est_and_ellipse_plot(data)

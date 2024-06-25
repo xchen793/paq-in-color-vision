@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Additional Information</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            position: relative;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            padding: 60px 80px;
+            max-width: 1000px;
+            text-align: left;
+        }
+        h1 {
+            color: #4CAF50;
+            margin-bottom: 40px;
+        }
+        .question {
+            margin-bottom: 40px;
+        }
+        .question p {
+            font-size: 22px;
+            font-weight: normal;
+        }
+        .options {
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 18px;
+        }
+        .buttons {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: #fff;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #367c39;
+        }
+        button.selected {
+            background-color: #1E90FF; /* Blue color for selected button */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Additional Information</h1>
+
+        <div class="question">
+            <p>Q11: Are you previously known to have any color-blindness condition?</p>
+            <div class="options">
+                <input type="radio" name="color_blindness" value="Red-green"> Red-green<br>
+                <input type="radio" name="color_blindness" value="Blue-yellow"> Blue-yellow<br>
+                <input type="radio" name="color_blindness" value="Other"> Other (please specify): <input type="text" name="other_color_blindness"><br>
+                <input type="radio" name="color_blindness" value="Not sure"> Yes, but not sure what type<br>
+                <input type="radio" name="color_blindness" value="No"> No<br>
+            </div>
+        </div>
+
+        <div class="question">
+            <p>Q12: Do you know additional information about the type of color-blindness you have?</p>
+            <div class="options">
+                <textarea name="additional_info" rows="4" cols="50" placeholder="Please provide any additional information..."></textarea>
+            </div>
+        </div>
+
+        <div class="buttons">
+            <button onclick="submitSelfReport()">Submit</button>
+        </div>
+    </div>
+
+    <script>
+        function submitSelfReport() {
+            const form = document.getElementById('self-report-form');
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+            fetch('/api/survey', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message === 'Survey results saved successfully') {
+                    window.location.href = '/pre_test';  // Redirect to the pre_test page
+                } else {
+                    alert('Failed to save survey results.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to save survey results.');
+            });
+        }
+    </script>
+</body>
+</html>

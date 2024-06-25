@@ -1,17 +1,15 @@
-
-
-///////////////////////// Survey Configuration /////////////////////////
+///////////////////////// Survey for model rejection /////////////////////////
 
 const luminance = 0.5;
 const targetDistance = 0.05;
-const numberOfDirections = 8; // number of directions
-const angleIncrement = 360 / numberOfDirections;
+const numberOfDirections = 2; // number of directions
+const angleIncrement = 90;
 const max = 1; // slider threshold
 const min = 0.7; // slider threshold
 const numAddedpoints = 10; // points on second path
 const numSliderspeed = 2;  // number of different slider speed
-const repetition = 10; // number of responses per direction
-const preTestPages = 10; // Number of pages for pre-test
+const repetition = 15; // number of responses per direction
+
 
 let currentPage = 1;
 let totalsliderValue = 100;
@@ -20,10 +18,7 @@ let currentxyY = { x: 0, y: 0, Y: luminance };
 
 // reference colors
 const fixedColors = [
-    { x: 0.28, y: 0.32, Y: luminance }, // greenish-yellow
-    { x: 0.32, y: 0.32, Y: luminance }, // neutral/white
-    { x: 0.33, y: 0.40, Y: luminance }, // dark green
-    { x: 0.38, y: 0.39, Y: luminance }  // dark yellow
+    { x: 0.32, y: 0.32, Y: luminance } // neutral/white
 ];
 
 // start points for each path
@@ -116,10 +111,7 @@ function interpolateColor2(startColor, endColor, steps) {
 
 // Generate target colors for each RGB color with randomness
 const targetColors = [
-    { R: 164, G: 177, B: 181 }, // start: blue, end: gray
-    { R: 191, G: 184, B: 184 }, // start: pink, end: gray
-    { R: 143, G: 202, B: 159 }, // start: dark green, end: shallow brown
-    { R: 194, G: 164, B: 110 }  // start: dark yellow, end: brown
+    { R: 191, G: 184, B: 184 }// start: pink, end: gray
 ];
 
 // Generate color paths for each pair of start and target colors
@@ -359,11 +351,12 @@ function submitColor(actionType) {
         query_vec: query_vec,
         gamma: gamma,
         fixedColor: fixedColorxyY,
-        endColor: startColorxyY,
-        flag: flag  // Include flag in the data
+        endColor: startColorxyY
     };
+    
+    console.log('Data to send:', data);
 
-    fetch(`/submit-color`, {
+    fetch(`/submit_model_rejection`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
