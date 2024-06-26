@@ -153,6 +153,7 @@ document.addEventListener('DOMContentLoaded', function () {
         history.replaceState({ page: currentPage }, `Page ${currentPage}`, `survey_page${currentPage}`);
         setupEventListeners();
         updateUIForPage(currentPage);
+        updateQuestionNumber();
     }
 });
 
@@ -197,6 +198,7 @@ function goToNextPage() {
         const nextPageUrl = `survey_page${currentPage}`;
         history.pushState({ page: currentPage }, `Page ${currentPage}`, nextPageUrl);
         updateUIForPage(currentPage);
+        updateQuestionNumber();
     }
 }
 
@@ -428,3 +430,15 @@ function interpolateColor(t, page) {
     };
 }
 
+// Function to update the question number
+function updateQuestionNumber() {
+    const pageNumber = currentPage;
+    if (pageNumber) {
+        const questionElement = document.getElementById('question');
+        if (questionElement) {
+            questionElement.textContent = `Question ${pageNumber}: Color Match Experiment`;
+        } else {
+            console.error("Question element not found.");
+        }
+    }
+}
