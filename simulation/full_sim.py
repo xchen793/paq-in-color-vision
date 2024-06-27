@@ -12,10 +12,11 @@ from collections import defaultdict
 
 from utils import *
 
-MAX_RETRIES = 30
-STOP_THRESH = 5
+MAX_RETRIES = 100
+STOP_THRESH = 10
+VAL_FAILS = True
 NUM_TRIALS = 20
-VIABLE_QUERY_TYPES = ['paq', 'paq_noisy_low', 'paq_noisy_med', 'paq_noisy_high', 'paired_comparison', 'triplet']
+VIABLE_QUERY_TYPES = ['paq', 'paq_noisy_low', 'paq_noisy_med', 'paq_noisy_high', 'paired_comparison', 'triplet', 'nn3', 'nn4', 'ranking3', 'ranking4']
 
 REF_SWEEP = 'ref'
 GAP_SWEEP = 'gap'
@@ -26,7 +27,7 @@ def run_one_exp() -> None:
     eigenvalue_gap = 10
 
     num_meas = 250
-    query_type = 'paq'
+    query_type = 'triplet'
     gt_out = generate_gt(num_ref, eigenvalue_gap)
     print('Generated GT')
     thresh = 5
@@ -40,18 +41,10 @@ def run_one_exp() -> None:
     # Use queries to estimate metrics
     est_out = estimate_metric(meas_out, query_type=query_type, thresh=thresh)
     print('Estimated metrics')
-    print(est_out)
 
-    # for k, v in est_out.items():
-    #     print(f'{k} : {v}')
-    #est_out = estimate_metric(meas_out, query_type=query_type, thresh=thresh)
-
-    # for k, v in est_out.items():
-    #     print(f'n = {k} | sig_hat = {v}')
-
-    const = 1
+    const = 1000
     w_star = gt_out['w_star']
-    angles_out, major_axes_out = compute_cones(est_out, gt_out, num_meas, const=const, pca=True)
+    angles_out, major_axes_out = compute_cones(est_out, gt_out, num_meas, const=const, pca=False)
     angles_deg_out = [a*180/np.pi for a in angles_out]
     print(f'angles: {angles_deg_out}')
 
@@ -101,6 +94,11 @@ def run_sweep(config: dict, dir: str, plot_only: bool = False) -> str:
     for query_type in queries:
         if query_type in res or query_type not in VIABLE_QUERY_TYPES:
             continue
+
+        if query_type == 'paq':
+            const_start = 0.01
+        else:
+            const_start = config['const_start']
 
         res_query = defaultdict(list) 
 
@@ -163,13 +161,13 @@ def run_sweep(config: dict, dir: str, plot_only: bool = False) -> str:
                 stop_sign = 0
                 best_const = const
                 #const_mult = const_start
-                while ct < MAX_RETRIES and stop_sign < STOP_THRESH: 
+                while ct < MAX_RETRIES:# and stop_sign < STOP_THRESH: 
                     if const == 1:
-                        const += 4
+                        const += 9
                     elif const < 1:
                         const += 0.1
                     else:
-                        const += 5
+                        const += 10
                     #const_mult += 0.1
                     #const = const_mult * num_meas
                     angles_out, major_axes_out = compute_cones(est_out, gt_out, num_meas, const=const)
@@ -180,20 +178,39 @@ def run_sweep(config: dict, dir: str, plot_only: bool = False) -> str:
                     if w_hat is not None:
                         err = compute_err(w_star, w_hat, normalize=normalize, squared=square)
                         #print(f'errors: {err} | num_fails: {num_fails}')
-                        if num_fails < num_fails_best:
-                            err_best = err
-                            num_fails_best = num_fails
-                            stop_sign = 0
-                            best_const = const
-                        elif num_fails == num_fails_best:
-                            if err < err_best:
+
+                        if VAL_FAILS:
+                            if num_fails < num_fails_best:
                                 err_best = err
-                                best_const = const
+                                num_fails_best = num_fails
                                 stop_sign = 0
+                                best_const = const
+                            elif num_fails == num_fails_best:
+                                if err < err_best:
+                                    err_best = err
+                                    best_const = const
+                                    stop_sign = 0
+                                else:
+                                    stop_sign += 1
                             else:
                                 stop_sign += 1
                         else:
-                            stop_sign += 1
+                            if err < err_best:
+                                err_best = err
+                                num_fails_best = num_fails
+                                stop_sign = 0
+                                best_const = const
+                            elif err == err_best:
+                                if num_fails < num_fails_best:
+                                    num_fails_best = num_fails
+                                    best_const = const
+                                    stop_sign = 0
+                                else:
+                                    stop_sign += 1
+
+                            else:
+                                stop_sign += 1
+                            
 
                 #print(f'best const: {best_const} | num violations: {num_fails_best} | err: {err_best}')
                 err_mc.append(err_best)
@@ -235,6 +252,10 @@ if __name__ == '__main__':
         sweep_type = config_data['sweep_type']
         if not args.plot:
             dir = create_directory(sweep_type)
+            config_fname = args.config.split('/')[-1]
+            config_fname = f"config_{config_fname}"
+            with open(os.path.join(dir, config_fname), 'w') as fw:
+                json.dump(config_data, fw, indent=4)
             fpath = run_sweep(config_data, dir, plot_only=args.plot)
         else:
             fpath = args.plot_file

@@ -16,7 +16,7 @@ from sklearn.decomposition import PCA
 np.random.seed(2024)
 solvers = [cp.SCS]
 
-font = {'size'   : 14}
+font = {'size'   : 12}
 
 matplotlib.rc('font', **font)
 
@@ -100,7 +100,17 @@ def generate_measurements(num_meas: int, gt: dict, query_type: str = 'paq', thre
     
     for n in range(num_ref):
         responses_n = []
-        feat_matrix_n = np.zeros((2, 2, num_meas))
+
+        if query_type[:2] == 'nn':
+            query_len = int(query_type[-1])
+            num_triplets = (query_len - 1)*num_meas
+            feat_matrix_n = np.zeros((2, 2, num_triplets)) # Example: for a NN query of len 3, 2 x num_meas triplets are mined
+        elif 'ranking' in query_type:
+            query_len = int(query_type[-1])
+            num_triplets = int((query_len-1) * (query_len) / 2) * num_meas
+            feat_matrix_n = np.zeros((2, 2, num_triplets))
+        else:
+            feat_matrix_n = np.zeros((2, 2, num_meas))
         item_vectors = []
         Sig_n = gt['sigma_stars'][n]
         if 'paq' in query_type:      
@@ -119,11 +129,11 @@ def generate_measurements(num_meas: int, gt: dict, query_type: str = 'paq', thre
         elif query_type == 'triplet':
             for i in range(num_meas):
                 delta_i = np.random.normal(size=(2,2))
-                feat_matrix_n[:,:,i] = np.outer(delta_i[0] - delta_i[1], delta_i[0] - delta_i[1])
+                feat_matrix_n[:,:,i] = np.outer(delta_i[0], delta_i[0]) - np.outer(delta_i[1], delta_i[1])
 
-                dist = np.trace(feat_matrix_n[:,:,i] @ Sig_n)
+                dist_diff = np.trace(feat_matrix_n[:,:,i] @ Sig_n)
 
-                if dist > thresh:
+                if dist_diff > 0:
                     outcome = 1
                 else:
                     outcome = -1
@@ -133,7 +143,7 @@ def generate_measurements(num_meas: int, gt: dict, query_type: str = 'paq', thre
 
         elif query_type == 'paired_comparison':
             for i in range(num_meas):
-                delta_i = np.random.normal(size=(2,))
+                delta_i = np.random.normal(size=(2))
                 feat_matrix_n[:,:,i] = np.outer(delta_i, delta_i)
                 
                 dist = np.trace(feat_matrix_n[:,:,i] @ Sig_n)
@@ -145,6 +155,47 @@ def generate_measurements(num_meas: int, gt: dict, query_type: str = 'paq', thre
 
                 responses_n.append(outcome)
                 item_vectors.append(delta_i)
+        elif query_type[:2] == 'nn':
+            query_len = int(query_type[-1])
+            store_ind = 0
+            for i in range(num_meas):
+                delta_i = np.random.normal(size=(query_len,2))
+                dists = []
+                for j in range(query_len):
+                    delta_j = delta_i[j]
+                    dist = np.trace(np.outer(delta_j, delta_j) @ Sig_n)
+                    dists.append(dist)
+
+                inds_sorted = np.argsort(dists)
+                best_delta = delta_i[inds_sorted[0]]
+                for j in inds_sorted[1:]:
+                    feat_matrix_n[:,:,store_ind] = np.outer(best_delta, best_delta) - np.outer(delta_i[j], delta_i[j])
+                    responses_n.append(-1)
+
+                    store_ind += 1
+
+        elif 'ranking' in query_type:
+            query_len = int(query_type[-1])
+            store_ind = 0
+            for i in range(num_meas):
+                delta_i = np.random.normal(size=(query_len,2))
+                dists = []
+                for j in range(query_len):
+                    delta_j = delta_i[j]
+                    dist = np.trace(np.outer(delta_j, delta_j) @ Sig_n)
+                    dists.append(dist)
+
+                inds_sorted = np.argsort(dists)
+                best_delta = delta_i[inds_sorted[0]]
+                for j in range(len(inds_sorted)):
+                    delta_j = delta_i[inds_sorted[j]]
+                    for k in range(j+1, len(inds_sorted)):
+                        delta_k = delta_i[inds_sorted[k]]
+                        feat_matrix_n[:,:,store_ind] = np.outer(delta_j, delta_j) - np.outer(delta_k, delta_k)
+                        responses_n.append(-1)
+
+                        store_ind += 1
+
 
         responses[n] = [feat_matrix_n, responses_n, item_vectors]
     return responses
@@ -170,12 +221,12 @@ def estimate_metric(responses: dict, thresh: float = 1, query_type: str = 'paq',
 
                 #loss = cp.sum_squares( thresh - (cp.vec(Sig_hat) @ feat_flat_n) ) / num_meas #+ 0.1 * cp.norm(Sig_hat, 'fro')
 
-            elif query_type == 'triplet':
-                loss += cp.pos(1 - cp.multiply(labels[i], cp.trace(feat_matrix @ Sig_hat) - thresh)) / num_meas
+            elif query_type == 'triplet' or 'ranking' in query_type or 'nn' in query_type:
+                loss += cp.pos(0.5 - cp.multiply(labels[i], cp.trace(feat_matrix @ Sig_hat))) / num_meas
                 #loss = cp.sum(cp.pos( 1 - cp.multiply(labels, (cp.vec(Sig_hat) @ feat_flat_n)) ) ) / num_meas #+ 0.1 * cp.norm(Sig_hat, 'fro')
 
             elif query_type == 'paired_comparison':
-                loss += cp.pos(1 - cp.multiply(labels[i], cp.trace(feat_matrix @ Sig_hat) - thresh)) / num_meas
+                loss += cp.pos(cp.multiply(labels[i], thresh - cp.trace(feat_matrix @ Sig_hat))) / num_meas
                 #loss = cp.sum(cp.pos( thresh - cp.multiply(labels, (cp.vec(Sig_hat) @ feat_flat_n))) ) / num_meas #+ 0.1 * cp.norm(Sig_hat, 'fro')
 
 
@@ -255,6 +306,43 @@ def estimate_metric_pca(responses: dict, gt: dict, thresh : float = 1, query_typ
     # plt.show()
     return est_out
 
+# ccw and intersect based on this post: https://bryceboe.com/2006/10/23/line-segment-intersection-algorithm/
+def ccw(A: np.ndarray, B: np.ndarray, C:np.ndarray) -> bool:
+    return (C[1]-A[1])*(B[0]-A[0]) > (B[1]-A[1])*(C[0]-A[0])
+
+#See if line segments AB and CD intersect
+def intersect(A: np.ndarray, B: np.ndarray, C: np.ndarray, D: np.ndarray) -> bool:
+        return ccw(A,C,D) != ccw(B,C,D) and ccw(A,B,C) != ccw(A,B,D)
+
+
+def get_dir_pairs(major_axes:list, gt: dict) -> list:
+    i, j = np.random.choice(len(major_axes), 2, replace=False)
+    vec1, vec2 = 1000*major_axes[i], 1000*major_axes[j]
+    ref1, ref2 = gt['refs'][i], gt['refs'][j]
+
+    # 4 possible orientations
+    for orientation in [(1, 1), (1, -1), (-1, 1), (-1, -1)]:
+        if intersect(ref1, ref1 + orientation[0]*vec1, ref2, ref2 + orientation[1]*vec2):
+            major_axes[i] *= orientation[0]
+            major_axes[j] *= orientation[1]
+            break
+
+    vec1, vec2 = 1000*major_axes[i], 1000*major_axes[j]
+
+    # re-orient every single axes to be in the same direction
+    for k, (z, v) in enumerate(zip(gt['refs'], major_axes)):
+        if k in [i, j]:
+            continue
+        
+        for orientation in [-1, 1]:
+            if intersect(ref1, ref1 + vec1, z, z + orientation*1000*v):
+                major_axes[k] *= orientation
+
+    return major_axes
+
+def get_dir_cheat(major_axes: list, gt: dict) -> list:
+    return 
+
 # step 2: compute cones
 def compute_cones(est_out: dict, gt: dict, num_meas: int, cheat: bool = False, const: float = 10, pca: bool = False) -> tuple[list, list]:
     alphas = []
@@ -281,12 +369,13 @@ def compute_cones(est_out: dict, gt: dict, num_meas: int, cheat: bool = False, c
         if cheat:
             tau = np.linalg.norm(sigma_hat - gt['sigma_stars'][n], 2)
         else:
-            tau = const * 2 / num_meas
+            tau = const * 4 / num_meas # d^2 / n
 
         alpha = 4 * tau / np.abs(lambda_1_hat_n - lambda_2_hat_n)
         alphas.append(alpha)
         major_axes.append(u2_hat)
 
+    major_axes = get_dir_pairs(major_axes, gt)
     return alphas, major_axes
 
 def feas_check(w_star: np.ndarray, zn: np.ndarray, u2_hat: np.ndarray, alpha: float) -> bool:
@@ -301,7 +390,7 @@ def feas_check(w_star: np.ndarray, zn: np.ndarray, u2_hat: np.ndarray, alpha: fl
     return (cond_one and cond_two)
 
 # step 3: Estimate copunct
-def estimate_copunctal(alphas: dict, major_axes: dict, refs: list, w_star: np.ndarray = None) -> tuple[np.ndarray, str, int]:
+def estimate_copunctal(alphas: dict, major_axes: list, refs: list, w_star: np.ndarray = None) -> tuple[np.ndarray, str, int]:
     w = cp.Variable(2) # Decision variable for the copunctal point w
     constraints = []
     num_fails = 0
@@ -375,6 +464,22 @@ def get_label(query_name: str) -> str:
         return 'Paired comparison\n(noiseless)'
     elif query_name == 'triplet':
         return 'Triplet (noiseless)'
+    elif 'nn' in query_name:
+        query_len = query_name[-1]
+        return f'NN-{query_len} (noiseless)'
+    elif 'ranking' in query_name:
+        query_len = query_name[-1]
+        return f'Rank-{query_len} (noiseless)'
+    
+def get_label_multiple(query_name: str, sweep_param: str) -> str:
+    if query_name == 'paq':
+        return f'PAQ (noiseless), {sweep_param} responses'
+    elif query_name == 'paq_noisy_low':
+        return f'PAQ (low noise), {sweep_param} responses'
+    elif query_name == 'paq_noisy_med':
+        return f'PAQ (medium noise), {sweep_param} responses'
+    elif query_name == 'paq_noisy_high':
+        return f'PAQ (high noise), {sweep_param} responses'
     
 def get_x_axis_label(sweep_type: str) -> str:
     if sweep_type == 'meas':
@@ -408,7 +513,7 @@ def plot_figure(fname: str, save_path: str, save_name: str, sweep_type: str) -> 
     plt.xlabel(get_x_axis_label(sweep_type), fontsize=20)
     plt.ylabel('Copunctal point estimation error', fontsize=20)
     #plt.legend()
-    plt.legend(loc='best')#'right', bbox_to_anchor=(1, 0.32))
+    plt.legend(loc='best', ncol=1) #'right', bbox_to_anchor=(1, 0.32))
     plt.savefig(save_fpath, bbox_inches = 'tight')
     plt.show()
 
@@ -435,7 +540,6 @@ def plot_figure(fname: str, save_path: str, save_name: str, sweep_type: str) -> 
     plt.legend()
     plt.savefig(save_fpath, bbox_inches = 'tight')
     plt.show()
-
 
 def create_directory(sweep_type:str) -> str:
     # Get today's date and time

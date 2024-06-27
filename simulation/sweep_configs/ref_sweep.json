@@ -1,9 +1,9 @@
 {
     "sweep_type"        : "ref",
-    "num_ref"           : [2, 5, 10, 15, 20, 25],
+    "num_ref"           : [2, 5, 10, 15, 20, 25, 50],
     "eigenvalue_gap"    : 10,
-    "queries"           : ["paired_comparison", "triplet", "paq", "paq_noisy_low", "paq_noisy_med", "paq_noisy_high"],
-    "num_meas"          : 25,
+    "queries"           : ["paq", "paq_noisy_low", "paq_noisy_med", "paq_noisy_high"],
+    "num_meas"          : 10,
     "thresh"            : 5,
     "const_start"       : 1,
     "normalize"         : false,
