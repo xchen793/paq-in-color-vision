@@ -1,46 +1,50 @@
-[
-    {
-        "question1": 1,
-        "question2": 1
+{
+    "survey_page16": {
+        "fixedColor": {
+            "x": 0.29,
+            "y": 0.3,
+            "Y": 0.5
+        },
+        "query_vec": {
+            "x": -0.40450849718747367,
+            "y": 0.2938926261462367,
+            "Y": 0
+        },
+        "gamma": 0.06508354020601628,
+        "endColor": {
+            "x": 0.30977457514062634,
+            "y": 0.4146946313073119,
+            "Y": 0.5,
+            "flag": "slow",
+            "query_vec": {
+                "x": -0.40450849718747367,
+                "y": 0.2938926261462367,
+                "Y": 0
+            }
+        }
     },
-    {
-        "question1": 1,
-        "question2": 1
-    },
-    {
-        "question1": 1,
-        "question2": 1
-    },
-    {
-        "question1": 1,
-        "question2": 1
-    },
-    {
-        "question1": 0,
-        "question2": 1
-    },
-    {
-        "question1": 1,
-        "question2": 1
-    },
-    {
-        "question1": 1,
-        "question2": 1
-    },
-    {
-        "question1": 1,
-        "question2": 1
-    },
-    {
-        "question1": 1,
-        "question2": 1
-    },
-    {
-        "question1": 1,
-        "question2": 1
-    },
-    {
-        "question1": 1,
-        "question2": 1
+    "survey_page17": {
+        "fixedColor": {
+            "x": 0.33,
+            "y": 0.4,
+            "Y": 0.5
+        },
+        "query_vec": {
+            "x": 0.3090169943749477,
+            "y": 0.9510565162951535,
+            "Y": 0
+        },
+        "gamma": -0.002503822996219406,
+        "endColor": {
+            "x": 0.3354508497187474,
+            "y": 0.3675528258147577,
+            "Y": 0.5,
+            "flag": "fast",
+            "query_vec": {
+                "x": 0.3090169943749477,
+                "y": 0.9510565162951535,
+                "Y": 0
+            }
+        }
     }
-]
+}

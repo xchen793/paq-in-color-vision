@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from matplotlib.patches import Ellipse
 from matplotlib import colors as mcolors
-import colour
 
 def mahalanobis_distance(x, mean, inv_cov):
     """Calculate the Mahalanobis distance."""

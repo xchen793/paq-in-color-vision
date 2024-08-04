@@ -4,14 +4,14 @@
 
 const luminance = 0.5;
 const targetDistance = 0.05;
-const numberOfDirections = 8; // number of directions
+const numberOfDirections = 10; // number of directions
 const angleIncrement = 360 / numberOfDirections;
 const max = 1; // slider threshold
 const min = 0.7; // slider threshold
 const numAddedpoints = 10; // points on second path
-const numSliderspeed = 2;  // number of different slider speed
-const repetition = 10; // number of responses per direction
-const preTestPages = 10; // Number of pages for pre-test
+const numSliderspeed = 1;  // number of different slider speed
+const repetition = 1; // number of responses per direction
+
 
 let currentPage = 1;
 let totalsliderValue = 100;
@@ -23,7 +23,8 @@ const fixedColors = [
     { x: 0.28, y: 0.32, Y: luminance }, // greenish-yellow
     { x: 0.32, y: 0.32, Y: luminance }, // neutral/white
     { x: 0.33, y: 0.40, Y: luminance }, // dark green
-    { x: 0.38, y: 0.39, Y: luminance }  // dark yellow
+    { x: 0.38, y: 0.39, Y: luminance }, // dark yellow
+    { x: 0.29, y: 0.30, Y: luminance } // light lavender blue
 ];
 
 // start points for each path
@@ -119,7 +120,8 @@ const targetColors = [
     { R: 164, G: 177, B: 181 }, // start: blue, end: gray
     { R: 191, G: 184, B: 184 }, // start: pink, end: gray
     { R: 143, G: 202, B: 159 }, // start: dark green, end: shallow brown
-    { R: 194, G: 164, B: 110 }  // start: dark yellow, end: brown
+    { R: 194, G: 164, B: 110 },  // start: dark yellow, end: brown
+    { R: 187, G: 187, B: 194 } // start: light lavender blue, end: cool Gray
 ];
 
 // Generate color paths for each pair of start and target colors
@@ -161,6 +163,7 @@ document.addEventListener('DOMContentLoaded', function () {
         history.replaceState({ page: currentPage }, `Page ${currentPage}`, `survey_page${currentPage}`);
         setupEventListeners();
         updateUIForPage(currentPage);
+        updateQuestionNumber();
     }
 });
 
@@ -205,6 +208,7 @@ function goToNextPage() {
         const nextPageUrl = `survey_page${currentPage}`;
         history.pushState({ page: currentPage }, `Page ${currentPage}`, nextPageUrl);
         updateUIForPage(currentPage);
+        updateQuestionNumber();
     }
 }
 
@@ -435,3 +439,15 @@ function interpolateColor(t, page) {
     };
 }
 
+// Function to update the question number
+function updateQuestionNumber() {
+    const pageNumber = currentPage;
+    if (pageNumber) {
+        const questionElement = document.getElementById('question');
+        if (questionElement) {
+            questionElement.textContent = `Question ${pageNumber}: Color Match Experiment`;
+        } else {
+            console.error("Question element not found.");
+        }
+    }
+}

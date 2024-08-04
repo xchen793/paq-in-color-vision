@@ -309,6 +309,9 @@ function computeDistance(startxyY, endxyY, vectorA) {
     }
     const dx = endxyY.x - startxyY.x;
     const dy = endxyY.y - startxyY.y;
+    
+    console.log("dx: ", dx);
+    console.log("dy: ", dy);
 
     let distancex = dx / vectorA.x;
     let distancey = dy / vectorA.y;

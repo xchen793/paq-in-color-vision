@@ -10,7 +10,6 @@ import traceback
 
 app = Flask(__name__)
 
-# store the questions data which decides whether a user will be paid or not
 DATA_FILE = 'color_data.json'
 MODEL_FILE = 'model_rejection.json'
 
@@ -24,10 +23,10 @@ def write_data(data):
     with open(DATA_FILE, 'w') as file:
         json.dump(data, file, indent=4)
 
-def read_data_model_rej():
-    if os.path.exists(MODEL_FILE):
+def read_data_file(FILE):
+    if os.path.exists(FILE):
         try:
-            with open(MODEL_FILE, 'r') as file:
+            with open(FILE, 'r') as file:
                 return json.load(file)
         except json.JSONDecodeError as e:
             print("JSON decode error while reading:", str(e))
@@ -37,9 +36,9 @@ def read_data_model_rej():
             return {}
     return {}
 
-def write_data_model_rej(data):
+def write_data_file(data, FILE):
     try:
-        with open(MODEL_FILE, 'w') as file:
+        with open(FILE, 'w') as file:
             json.dump(data, file, indent=4)
     except Exception as e:
         print("Error writing to the JSON file:", str(e))
@@ -48,6 +47,10 @@ def write_data_model_rej(data):
 @app.route('/')
 def index():
     return render_template('intro.html')
+
+@app.route('/select-option')
+def select_option():
+    return render_template('select-option.html')
 
 #######   model rejection page + data handler   #######  
 # Route for model_rejection.html
@@ -63,7 +66,7 @@ def questions():
 @app.route('/submit_model_rejection', methods=['POST'])
 def submit_model_rejection():
     try:
-        data = read_data_model_rej()
+        data = read_data_file(MODEL_FILE)
         new_entry = request.json
 
         if not new_entry:
@@ -77,7 +80,7 @@ def submit_model_rejection():
             data['model_rejection'] = {}
 
         data['model_rejection'][page_key] = new_entry
-        write_data_model_rej(data)
+        write_data_file(data, MODEL_FILE)
 
         return jsonify({'status': 'success'})
 
@@ -91,15 +94,14 @@ def submit_model_rejection():
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
-
-# Endpoint to handle data from questions.html
-@app.route('/submit_questions', methods=['POST'])
-def submit_questions():
-    data = read_data_model_rej()
-    new_entry = request.get_json()
-    data['model_rejection'] = new_entry
-    write_data_model_rej(data)
-    return jsonify({'message': 'Survey results saved successfully'}), 201
+# # Endpoint to handle data from questions.html
+# @app.route('/submit_questions', methods=['POST'])
+# def submit_questions():
+#     data = read_data_file(MODEL_FILE)
+#     new_entry = request.get_json()
+#     data['model_rejection'] = new_entry
+#     write_data_file(data, MODEL_FILE)
+#     return jsonify({'message': 'Survey results saved successfully'}), 201
 
 
 ######### #############
@@ -108,7 +110,7 @@ def submit_questions():
 def self_report():
     return render_template('self_report.html')
 
-@app.route('/pre_test')
+@app.route('/pretest')
 def pre_test():
     return render_template('pre_test.html')
 
@@ -140,12 +142,14 @@ def submit_color():
         gamma = data.get('gamma')  
         endColor = data.get('endColor') 
 
-        # File path for JSON storage
-        file_path = MODEL_FILE
+        file_path = DATA_FILE
+
         if os.path.exists(file_path):
             with open(file_path, 'r+') as file:
                 try:
                     existing_data = json.load(file)
+                    print("1")
+                    print(existing_data)
                     existing_data[pageId] = {
                         'fixedColor': fixedColor,
                         'query_vec': query_vec,
@@ -178,4 +182,4 @@ def thankyou():
     return render_template('thankyou.html')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(port=5000, debug=True)

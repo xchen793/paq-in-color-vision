@@ -72,8 +72,7 @@ def plot_cov_ellipse(cov, center, data_points, plot_color, person, idx, nstd=2, 
     """Plot an ellipse representing the covariance matrix."""
     if ax is None:
         fig, ax = plt.subplots()
-
-
+        
     # Ensure there are data points to process
     if data_points:
         data_x, data_y = zip(*data_points)  # Unzip data points
@@ -101,7 +100,7 @@ def plot_cov_ellipse(cov, center, data_points, plot_color, person, idx, nstd=2, 
     #     print("Adjusting width/height for visibility.")
     #     width = height = 0.1  # Default small value to make ellipse visible
 
-    ellipse = Ellipse(xy=center, width=width, height=height, angle=theta, edgecolor=plot_color, facecolor='none', label=get_person_label(person, idx))
+    ellipse = Ellipse(xy=center, width=width, height=height, angle=theta, edgecolor=plot_color, facecolor='none', label='4 Ellipses with major axes') #label=get_person_label(person, idx))
 
     ax.add_patch(ellipse)
     ax.set_aspect('equal')
@@ -113,8 +112,9 @@ def plot_cov_ellipse(cov, center, data_points, plot_color, person, idx, nstd=2, 
     ax.legend(handles=[legend_proxy])   
 
 
+
     # Calculate endpoints of the major axis
-    elongation_factor = 14
+    elongation_factor = 10
     angle_rad = np.radians(theta)
     dx = width / 2 * np.cos(angle_rad) * elongation_factor  # Multiply dx by elongation factor
     dy = width / 2 * np.sin(angle_rad) * elongation_factor  # Multiply dy by elongation factor
@@ -124,23 +124,37 @@ def plot_cov_ellipse(cov, center, data_points, plot_color, person, idx, nstd=2, 
     x2, y2 = center[0] + dx, center[1] + dy
 
     # Add line for the major axis
-    #ax.plot([x1, x2], [y1, y2], plot_color, linestyle='--')
+    ax.plot([x1, x2], [y1, y2], plot_color, linestyle='--')
 
     return ax
 
-<<<<<<< HEAD
-def metric_est_and_ellipse_plot(data, thresh: float = 1e-3, num_meas: int = 20, max_iter: int = 10000, flag: str = ""):
+def metric_est_and_ellipse_plot(person, thresh: float = 5 * 1e-4, num_meas: int = 10, max_iter: int = 10000, flag: str = ""):
     
+    # CIE 1931 2° Standard Observer Chromaticity Diagram
+    fig,ax = colour.plotting.plot_chromaticity_diagram_CIE1931(standalone=False)
+    ax.set_xlabel('CIE x', fontsize=14)
+    ax.set_ylabel('CIE y', fontsize=14)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    # plt.rcParams['font.size'] = 16
+    if person == 'ashwin':
+        str = "color blind"
+    elif person == 'austin':
+        str = "color normal A"
+    elif person == 'jingyan':
+        str = "color normal B"
+    else:
+        str = "color normal C"
+    ax.set_title(f"Ellipse plot for {str}", pad=20, fontsize=20)
+    data = load_data(f'ui_local/data/prev/color_data_{person}.json')  
+
     est_out = []
     data_points = {}
     gamma_squared = {}
 
-    fig, ax = plt.subplots(figsize=(6, 5)) 
     Sig_hat = cp.Variable((2,2), PSD=True)
     losses = [0,0,0,0]
     i = 0
     for _, details in data.items():
-
         fixed = (details['fixedColor']['x'], details['fixedColor']['y'])
         gamma = details['gamma']
         query = (details['query_vec']['x'], details['query_vec']['y'], details['query_vec']['Y'])
@@ -149,7 +163,7 @@ def metric_est_and_ellipse_plot(data, thresh: float = 1e-3, num_meas: int = 20, 
         if key not in gamma_squared:
             gamma_squared[key] = None
 
-        
+            
         a_x = details['query_vec']['x']
         a_y = details['query_vec']['y']
         a = np.array([a_x, a_y])
@@ -163,11 +177,11 @@ def metric_est_and_ellipse_plot(data, thresh: float = 1e-3, num_meas: int = 20, 
         data_points[fixed].append((data_x, data_y))
 
 
-        if i < 20:
+        if i < 10:
             losses[0] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
-        elif i < 40:
+        elif i < 20:
             losses[1] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
-        elif i < 60:
+        elif i < 30:
             losses[2] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
         else:
             losses[3] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
@@ -188,121 +202,80 @@ def metric_est_and_ellipse_plot(data, thresh: float = 1e-3, num_meas: int = 20, 
         est_out.append(Sig_hat.value)
 
     for i in range(len(center_points)):
-        plot_cov_ellipse(est_out[i], center_points[i], data_points[tuple(center_points[i])], nstd=0.3, ax=ax, edgecolor='red', facecolor='none')
+        plot_cov_ellipse(est_out[i], center_points[i], data_points[tuple(center_points[i])], plot_color, person, idx, nstd=0.5, ax=ax, edgecolor=plot_color, facecolor='none')
 
-    # Set plot limits based on the range of data points and centers
-    all_points = [point for sublist in data_points.values() for point in sublist] + center_points
-    all_x = [point[0] for point in all_points]
-    all_y = [point[1] for point in all_points]
-    
-    ax.set_xlim(0.12, 0.50)
-    ax.set_ylim(0.23, 0.53)
+        # # Set plot limits based on the range of data points and centers
+        # all_points = [point for sublist in data_points.values() for point in sublist] + center_points
+        # all_x = [point[0] for point in all_points]
+        # all_y = [point[1] for point in all_points]
+        
+        #ax.set_xlim(min(all_x) - 0.1, max(all_x) + 0.1)
+        #ax.set_ylim(min(all_y) - 0.1, max(all_y) + 0.1)
+        # ax.set_xlim(0, 0.8)
+        # ax.set_ylim(0, 0.9)
 
-    handles, labels = ax.get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    ax.legend(by_label.values(), by_label.keys(), loc='upper left', fontsize='x-large')
-    ax.grid()
-    ax.set_xlabel("x", fontsize=14)
-    ax.set_ylabel("y", fontsize=14)
-    ax.set_title(f"Color blind D ellipse plot", fontsize=20)
-    plt.savefig(f'D_elliipse.png', format='png', dpi=300)
-=======
-def metric_est_and_ellipse_plot(thresh: float = 5 * 1e-4, num_meas: int = 10, max_iter: int = 10000, flag: str = ""):
+        handles, labels = ax.get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        legend = ax.legend(by_label.values(), by_label.keys())   
+        plt.setp(legend.get_texts(), fontsize=18)
+        ax.grid()
+        #ax.set_title(f"Normal trichromat {name} ellipse plot")
+    # plt.show() 
+    plt.savefig(f'ellipse_{person}.png', format='png', dpi=300)
+    return gamma_squared
+
+
+def hypo_test_raw_data_plot():
     fig, ax = colour.plotting.plot_chromaticity_diagram_CIE1931(standalone=False)
+    ax.set_title("CIE 1931 Chromaticity Diagram - CIE 1931 2° Standard Observer", pad=20)
+    # Adjust layout to make room for the title
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    people = ['austin', 'lorraine']
 
-    # Load the JSON data from the file
-    people = ['ashwin', 'austin', 'jingyan', 'lorraine']
-    plot_colors = [mcolors.CSS4_COLORS['crimson'], mcolors.CSS4_COLORS['palegreen'], mcolors.CSS4_COLORS['forestgreen'], mcolors.CSS4_COLORS['darkgreen']]
+    plot_colors = [mcolors.CSS4_COLORS['forestgreen']]*4
+    # plot_colors = [mcolors.CSS4_COLORS['crimson'], mcolors.CSS4_COLORS['palegreen'], mcolors.CSS4_COLORS['forestgreen'], mcolors.CSS4_COLORS['darkgreen']]
     for idx, (person, plot_color) in enumerate(zip(people, plot_colors)): 
-        data = load_data(f'./data/prev/color_data_{person}.json')
+        data = load_data(f'ui_local/data/model_rejection/model_rejection_{person}.json')
 
         est_out = []
         data_points = {}
         gamma_squared = {}
 
-        #fig, ax = plt.subplots() 
         Sig_hat = cp.Variable((2,2), PSD=True)
         losses = [0,0,0,0]
         i = 0
-        for _, details in data.items():
 
-            fixed = (details['fixedColor']['x'], details['fixedColor']['y'])
-            gamma = details['gamma']
-            query = (details['query_vec']['x'], details['query_vec']['y'], details['query_vec']['Y'])
-            # flag = details['endColor']['flag']
-            key = (fixed, query)
-            if key not in gamma_squared:
-                gamma_squared[key] = None
+        model_rejection = data.get("model_rejection", {})
 
-            
-            a_x = details['query_vec']['x']
-            a_y = details['query_vec']['y']
-            a = np.array([a_x, a_y])
-            feature_matrix = gamma * np.outer(a, a)
+        for key, value in model_rejection.items():
+            if key.startswith("survey_page") and isinstance(value, dict):
+                details = value
+                if 'endColor' in details:
+                    # Constructing a unique key from both fixedColor and query_vec
+                    fixed = (details['fixedColor']['x'], details['fixedColor']['y'])
+                    gamma = details['gamma']
+                    query = (details['query_vec']['x'], details['query_vec']['y'], details['query_vec']['Y'])
+                    key = (fixed, query)
 
-            data_x = fixed[0] + gamma * a_x
-            data_y = fixed[1] + gamma * a_y
-
-            if fixed not in data_points: 
-                data_points[fixed] = []
-            data_points[fixed].append((data_x, data_y))
-
-
-            if i < 10:
-                losses[0] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
-            elif i < 20:
-                losses[1] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
-            elif i < 30:
-                losses[2] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
-            else:
-                losses[3] += (thresh - cp.trace(feature_matrix @ Sig_hat))**2 / num_meas
-            
-            i += 1
-
-
-        for j in range(4):
-            obj = cp.Minimize(losses[j])
-            prob = cp.Problem(obj)
-            prob.solve(solver=cp.SCS, max_iters = max_iter)
-
-            ct = 1
-            while prob.status != cp.OPTIMAL and ct < len(solvers):
-                prob.solve(solver=solvers[ct], max_iters = max_iter)
-                ct += 1
-
-            est_out.append(Sig_hat.value)
-
-        for i in range(len(center_points)):
-            plot_cov_ellipse(est_out[i], center_points[i], data_points[tuple(center_points[i])], plot_color, person, idx, nstd=0.5, ax=ax, edgecolor=plot_color, facecolor='none')
-
-        # Set plot limits based on the range of data points and centers
-        all_points = [point for sublist in data_points.values() for point in sublist] + center_points
-        all_x = [point[0] for point in all_points]
-        all_y = [point[1] for point in all_points]
         
-        #ax.set_xlim(min(all_x) - 0.1, max(all_x) + 0.1)
-        #ax.set_ylim(min(all_y) - 0.1, max(all_y) + 0.1)
-        ax.set_xlim(0, 0.8)
-        ax.set_ylim(0, 0.9)
 
-        handles, labels = ax.get_legend_handles_labels()
-        by_label = dict(zip(labels, handles))
-        ax.legend(by_label.values(), by_label.keys())
-        ax.grid()
-        #ax.set_title(f"Normal trichromat {name} ellipse plot")
-    #plt.show()
-    plt.savefig(f'all_elliipse.png', format='png', dpi=300)
->>>>>>> a7ae9fd7f04d7c9b6dea1aa82a304ec2baba7fcd
+        plt.savefig(f'rejection_raw_data.png', format='png', dpi=300)
 
-    return gamma_squared
 
 
 if __name__ == "__main__":
-<<<<<<< HEAD
-    data = load_data('ui_local/data/prev/color_data_ashwin.json')
-=======
     
->>>>>>> a7ae9fd7f04d7c9b6dea1aa82a304ec2baba7fcd
     # fast_data, medium_data, slow_data = divide_data_by_flag(data)
     # check_key_completeness(fast_data, medium_data, slow_data)
-    metric_est_and_ellipse_plot()
+
+    ############## Plot copunctal point and confusion lines (four people) ##############
+    # Load the JSON data from the file
+    people = ['ashwin', 'austin', 'jingyan', 'lorraine']
+    
+    plot_colors = [mcolors.CSS4_COLORS['darkgreen'], mcolors.CSS4_COLORS['forestgreen'], mcolors.CSS4_COLORS['forestgreen'], mcolors.CSS4_COLORS['forestgreen']]
+    # plot_colors = [mcolors.CSS4_COLORS['crimson'], mcolors.CSS4_COLORS['palegreen'], mcolors.CSS4_COLORS['forestgreen'], mcolors.CSS4_COLORS['darkgreen']]
+    for idx, (person, plot_color) in enumerate(zip(people, plot_colors)): 
+        metric_est_and_ellipse_plot(person)
+    
+    
+    # hypo_test_raw_data_plot()
