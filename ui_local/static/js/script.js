@@ -1,3 +1,36 @@
+let startTime, intId;
+
+window.onload = function() {
+    startTimer(); 
+};
+
+function startTimer() {
+    startTime = new Date(); 
+    // console.log("Timer started at: ", startTime); 
+    intId = setInterval(updateTimer, 1000); 
+}
+
+function updateTimer() {
+    const now = new Date();
+    // const timePassed = Math.floor((now - startTime) / 1000); // in seconds
+    // document.getElementById("timer").innerText = "Time: " + timePassed + " seconds";
+}
+
+function stopTimer() {
+    clearInterval(intId); // Stop the timer
+    const endTime = new Date();
+    // console.log("Timer stopped at: ", endTime);
+    const timeTaken = Math.floor((endTime - startTime) / 1000); 
+    // console.log("Time taken: ", timeTaken);
+    return timeTaken; // Return the time taken for the current page
+}
+
+function resetTimer() {
+    clearInterval(intId); // Clear any existing interval
+    // document.getElementById("timer").innerText = "Time: 0 seconds"; // Reset display to 0
+    startTimer(); // Start a new timer for the next page
+}
+
 
 
 ///////////////////////// Survey Configuration /////////////////////////
@@ -43,7 +76,7 @@ fixedColors.forEach(color => {
         };
         for (let i = 0; i < repetition; i++) {
             endpoints.push({ x: newX1, y: newY1, Y: luminance, flag: "fast", query_vec: vector1 });
-            endpoints.push({ x: newX2, y: newY2, Y: luminance, flag: "slow", query_vec: halfVector });
+            // endpoints.push({ x: newX2, y: newY2, Y: luminance, flag: "slow", query_vec: halfVector }); 
         }
     }
 });
@@ -202,7 +235,7 @@ function getPageNumberFromURL() {
 
 function goToNextPage() {
     if (currentPage >= numPage) {
-        window.location.href = '/thankyou';
+        window.location.href = '/self_report';
     } else {
         currentPage = currentPage + 1;
         const nextPageUrl = `survey_page${currentPage}`;
@@ -343,12 +376,14 @@ function calculatePointOnDirection(x, y, angle, distance) {
 }
 
 function submitColor(actionType) {
-    const slider = document.getElementById("color-slider");
+
+    const timeTaken = stopTimer();
+    // const slider = document.getElementById("color-slider");
 
     let currentPath = shuffledColorPaths[currentPage - 1];
-    console.log("currentPath.endxyY: ", currentPath.endxyY);
-    console.log("currentxyY: ", currentxyY);
-    console.log("currentPath.query_vec: ", currentPath.query_vec);
+    // console.log("currentPath.endxyY: ", currentPath.endxyY);
+    // console.log("currentxyY: ", currentxyY);
+    // console.log("currentPath.query_vec: ", currentPath.query_vec);
     let gamma = computeDistance(currentPath.endxyY, currentxyY, currentPath.query_vec); // reference point; current point; va
 
     let fixedColorxyY = currentPath.endxyY;
@@ -358,13 +393,17 @@ function submitColor(actionType) {
     let pageId = getPageId();
 
     let data;
+    // Get the prolific_id from sessionStorage
+    const prolificId = sessionStorage.getItem('prolific_id');
     data = {
+        prolific_id: prolificId, 
         pageId: pageId,
         query_vec: query_vec,
         gamma: gamma,
         fixedColor: fixedColorxyY,
         endColor: startColorxyY,
-        flag: flag  // Include flag in the data
+        flag: flag,  // Include flag in the data
+        timeTaken: timeTaken 
     };
 
     fetch(`/submit-color`, {
@@ -375,6 +414,7 @@ function submitColor(actionType) {
     .then(response => response.json())
     .then(data => {
         console.log(`Response submitted: ${data.status}`); // Log the response instead of showing an alert
+        resetTimer();
     })
     .catch(error => console.error('Error submitting response:', error));
 }
@@ -445,7 +485,7 @@ function updateQuestionNumber() {
     if (pageNumber) {
         const questionElement = document.getElementById('question');
         if (questionElement) {
-            questionElement.textContent = `Question ${pageNumber}: Color Match Experiment`;
+            questionElement.textContent = `Question ${pageNumber}`;
         } else {
             console.error("Question element not found.");
         }

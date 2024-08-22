@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consent</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f4f4f9;
+            color: #333;
+            line-height: 1.6;
+            font-size: 20px;
+        }
+        .container {
+            width: 100%;
+            margin: auto;
+            max-width: 900px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background-color: #4CAF50;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 20px;
+        }
+        button:hover {
+            background-color: #367c39;
+        }
+    </style>
+    <script>
+        function handleAgree() {
+            // Redirect to the next page or perform any action after consent
+            window.location.href = '/intro';
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Consent </h1>
+        <p>This is a voluntary study at Georgia Tech. We study how people perceive colors, especially for those who are color-blind. In this task, you will compare and match colors using a sliding bar. At the end, you will answer questions about whether you are color-blind. You may withdraw from the study at any time.</p>
+        <p>This task will take about 10-15 minutes. First, you will answer 2 simple questions to makes sure that you understand the task. If you get them right, you will move on to the main task. When you finish, you will receive $4 as payment.</p>
+        <p>The risks are no greater than other tasks on Prolific, and you may not get any personal benefit. The study does not collect any identifiable information, except your anonymized Prolific ID for payment. Anonymous data may be made public to other researchers in future.</p>
+        <p>The Georgia Tech IRB and the Office of Human Research Protections may review study records. We will comply with any applicable laws and regulations regarding confidentiality. If you have questions, you can contact Ashwin Pananjady (ashwinpm@gatech.edu). If you have questions about your rights as a research subject, you can contact Georgia Tech IRB (IRB@gatech.edu).</p>
+        <p>Thank you for participating!</p>
+        <p>By clicking "I agree", you confirm that you’re at least 18 years old, live in the US, and wish to participate in this study.</p>
+        <button onclick="handleAgree()">I Agree</button>
+    </div>
+</body>
+</html>

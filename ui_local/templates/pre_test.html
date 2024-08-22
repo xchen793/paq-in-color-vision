@@ -207,17 +207,12 @@
             });
 
             document.getElementById('next-page').addEventListener('click', function () {
-                ///////////// If we want to store the data, uncomment the code below ///////////// 
                 const sliderValue = document.getElementById('color-slider').value;
-                //const confidenceValue = document.querySelector('input[name="confidence"]:checked') ? document.querySelector('input[name="confidence"]:checked').value : null;
-
+                
                 const data = {
                     sliderValue: sliderValue
-                    //confidenceValue: confidenceValue
-                };
 
-                // localStorage.setItem('surveyData', JSON.stringify(data));
-                // alert('Data saved: ' + JSON.stringify(data));
+                };
 
                 // //Redirect to the survey page with the appropriate page number
                 window.location.href = '/survey?page=1'; 

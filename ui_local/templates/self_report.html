@@ -38,13 +38,13 @@
         .options {
             margin-bottom: 20px;
         }
-        input[type="text"] {
+        input[type="text"], textarea {
             width: 100%;
             padding: 10px;
             margin-top: 10px;
             border-radius: 5px;
             border: 1px solid #ccc;
-            font-size: 18px;
+            font-size: 22px;
         }
         .buttons {
             display: flex;
@@ -75,18 +75,18 @@
         <h1>Additional Information</h1>
 
         <div class="question">
-            <p>Q11: Are you previously known to have any color-blindness condition?</p>
+            <p>Q51: Are you previously known to have any color-blindness condition?</p>
             <div class="options">
-                <input type="radio" name="color_blindness" value="Red-green"> Red-green<br>
-                <input type="radio" name="color_blindness" value="Blue-yellow"> Blue-yellow<br>
-                <input type="radio" name="color_blindness" value="Other"> Other (please specify): <input type="text" name="other_color_blindness"><br>
-                <input type="radio" name="color_blindness" value="Not sure"> Yes, but not sure what type<br>
-                <input type="radio" name="color_blindness" value="No"> No<br>
+                <input type="radio" name="color_blindness" value="Red-green" required> Red-green<br>
+                <input type="radio" name="color_blindness" value="Blue-yellow" required> Blue-yellow<br>
+                <input type="radio" name="color_blindness" value="Not sure" required> Yes, but don't know what type<br>
+                <input type="radio" name="color_blindness" value="Other" required> Other<br>
+                <input type="radio" name="color_blindness" value="No" required> No<br>
             </div>
         </div>
 
         <div class="question">
-            <p>Q12: Do you know additional information about the type of color-blindness you have?</p>
+            <p>Q52: Do you know additional information about the type of color-blindness you have? If you answered "Other" in the last question, please provide details here.</p>
             <div class="options">
                 <textarea name="additional_info" rows="4" cols="50" placeholder="Please provide any additional information..."></textarea>
             </div>
@@ -99,28 +99,40 @@
 
     <script>
         function submitSelfReport() {
-            const form = document.getElementById('self-report-form');
-            const formData = new FormData(form);
-            const data = Object.fromEntries(formData.entries());
-            fetch('/api/survey', {
+            // You can collect the form data if necessary
+            const isAnswered = document.querySelector('.options input[name="color_blindness"]:checked');
+            var textareaValue = document.querySelector('textarea[name="additional_info"]').value;
+
+            if (!isAnswered) {
+                alert('Please answer the question Q51 before proceeding.');
+                return; // Stop the function if the question is not answered
+            }
+
+            const answer = isAnswered.value;
+            const prolificId = sessionStorage.getItem('prolific_id');
+            const data = {
+                prolificId: prolificId, 
+                color_blindness: answer,
+                add_info: textareaValue 
+            };
+            
+            fetch('/save-answer', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(data),
+                body: JSON.stringify(data)
             })
             .then(response => response.json())
             .then(data => {
-                if (data.message === 'Survey results saved successfully') {
-                    window.location.href = '/pre_test';  // Redirect to the pre_test page
-                } else {
-                    alert('Failed to save survey results.');
-                }
+                console.log('Success:', data);
             })
-            .catch(error => {
+            .catch((error) => {
                 console.error('Error:', error);
-                alert('Failed to save survey results.');
             });
+
+            // Directly redirect to the thank you page
+            window.location.href = '/comments';
         }
     </script>
 </body>

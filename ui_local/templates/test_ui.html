@@ -141,12 +141,16 @@
             margin-top: 30px;
             text-align: left;
         }
+        #timer {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
-    <h2>Color Path Slider</h2>
     <div class="container">
-        <h3 class="left-aligned" id="question">Question : Color Match Experiment</h3>
+        <h3 class="left-aligned" id="question">Question </h3>
         <div class="question">
             <div class="color-displays">
                 <div class="color-and-label" style="margin-top: 20px;">
@@ -162,11 +166,13 @@
             <div class="slider-container">
                 <input type="range" min="0" max="100" value="0" id="color-slider">
                 <div class="instruction">
-                    Please slide the bar until the test color becomes similar to the reference color.
+                    Please slide the bar until the test color becomes the same as the reference color.
                 </div>
                 <!-- <div class="reminder">Reminder: answering this question accurately will give you a bonus.</div> -->
             </div>
         </div>
+
+        <!-- <div id="timer">Time: 0 seconds</div> -->
 
         <!-- <h3 class="left-aligned">Question 2: How confident are you about the color match?</h3>
 

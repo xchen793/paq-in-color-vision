@@ -1,62 +1,9 @@
-<!-- <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Color Vision Survey Introduction</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 40px;
-            background-color: #f4f4f9;
-            color: #333;
-            line-height: 1.6;
-        }
-        .container {
-            width: 80%;
-            margin: auto;
-            background: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        button {
-            background-color: #4CAF50;
-            color: #fff;
-            border: none;
-            padding: 10px 20px;
-            margin: 20px 0;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        button:hover {
-            background-color: #367c39;
-        }
-    </style>
-     <script>
-        function startSurvey() {
-            window.location.href = '/questions';  // redirect to the question page
-        }
-    </script>
-</head>
-<body>
-    <div class="container">
-        <h1>Welcome to the Color Vision Survey</h1>
-        <p>This survey is designed to understand how people perceive different colors. Your participation will help us to improve color accessibility and design choices in various applications.</p>
-        <p>Please click the start button below to begin the survey. Thank you for your participation and valuable contributions!</p>
-        <b>How to do the survey? </b>
-        <p>For each question, you will see a reference color on the left. Adjust the slider to modify the color on the right until you think the two colors match. Click the "Next" button <strong>the first time</strong> you perceive the colors to be the same (or with nuance difference). If you cannot find a matching point along the slider, click "No Match". If you see a matching interval, make sure to select the <strong>first occurrence</strong>.</p>
-        <button onclick="startSurvey()">Start Survey</button>
-    </div>
-</body>
-</html> -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Color Vision Survey Introduction</title>
+    <title>Instructions</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -64,9 +11,10 @@
             background-color: #f4f4f9;
             color: #333;
             line-height: 1.6;
+            font-size: 20px;
         }
         .container {
-            width: 80%;
+            width: 60%;
             margin: auto;
             background: #fff;
             padding: 20px;
@@ -81,26 +29,396 @@
             margin: 20px 0;
             border-radius: 5px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 20px;
         }
         button:hover {
             background-color: #367c39;
         }
-    </style>
-     <script>
-        function startSurvey() {
-            window.location.href = '/pretest';  // redirect to the intermediate page, /select-option
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f7f7f7;
+            color: #333;
+            text-align: center;
         }
-    </script>
+        /* .container {
+            width: 90%;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 30px;
+            background-color: #fff;
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        } */
+        h2 {
+            margin-bottom: 30px;
+            font-size: 24px;
+            color: #555;
+        }
+        .question {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .color-displays {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .color-and-label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        #fixed-color-display, #color-display, #additional-color-display {
+            width: 150px;
+            height: 150px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        #fixed-color-display {
+            background-color: rgb(255, 0, 0);
+        }
+        #additional-color-display {
+            background-color: rgb(0, 0, 255);
+        }
+        .vertical-line {
+            width: 2px;
+            height: 150px;
+            background-color: #ddd;
+        }
+        .slider-container {
+            width: 60%;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-left: 20px;
+            margin-top: 20px;
+        }
+        input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #ddd;
+            height: 8px;
+            border-radius: 5px;
+            outline: none;
+            transition: background 0.3s;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            background: #4CAF50;
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            background: #4CAF50;
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 40px;
+        }
+        .button-group button, .confidence-buttons button {
+            padding: 12px 25px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 25px;
+            background-color: #4CAF50;
+            color: white;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        .button-group button:hover, .confidence-buttons button:hover {
+            background-color: #367c39;
+            transform: scale(1.05);
+        }
+        .reminder {
+            color: #4CAF50; /* Green color */
+            margin-top: 20px;
+            margin-left: 60px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .instruction {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 40px;
+            margin-left: 30px;
+        }
+        .left-aligned {
+            margin-top: 30px;
+            text-align: left;
+        }
+        .question2 {
+            margin-bottom: 40px;
+        }
+        .question2 p {
+            font-size: 22px;
+            font-weight: normal;
+        }
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .option {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #f0f0f0;
+            transition: background-color 0.3s;
+        }
+        .option:hover {
+            background-color: #e0e0e0;
+        }
+        .option input {
+            margin-right: 10px;
+        }
+        .option.selected {
+            background-color: #ccc;
+        }
+        .custom-buttons {
+            display: flex;
+            justify-content: left;
+            gap: 60px; /* Increased gap for more spacing */
+            margin-top: 20px;
+        }
+        .custom-button {
+            background-color: #28a745; /* Green background color */
+            color: #4CAF50;
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .custom-button:hover {
+            background-color: #218838; /* Darker green on hover */
+        }
+        .custom-button:active {
+            background-color: #1e7e34; /* Even darker green when the button is clicked */
+        }
+        p {
+            font-size: 20px;
+            font-weight: normal;
+            margin-top: 40px;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
-        <h1>Welcome to the Color Vision Survey</h1>
-        <p>This survey is designed to understand how people perceive different colors. Your participation will help us to improve color accessibility and design choices in various applications.</p>
-        <p>Please click the start button below to begin the survey. Thank you for your participation and valuable contributions!</p>
-        <b>How to do the survey? </b>
-        <p>For each question, you will see a reference color on the left. Adjust the slider to modify the color on the right until you think the two colors match. Click the "Next" button <strong>the first time</strong> you perceive the colors to be the same (or with nuance difference). If you cannot find a matching point along the slider, click "No Match". If you see a matching interval, make sure to select the <strong>first occurrence</strong>.</p>
-        <button onclick="startSurvey()">Start Survey</button>
+        <div class="left-aligned">
+        <h1>Instructions</h1>
+        <p>In this survey, your task is to choose and match colors. Here is an example question to demonstrate this task. You will see a reference color and a test color. The test color is initially different from the reference color. You will move the slider from left to right. Your goal is to slide and stop until you first perceive the test color the same as the reference color. Please feel free to play with the slider: </p>
+        </div>
+        <p></p>
+        <h2>Example</h2>
+        <div class="question">
+            <div class="color-displays">
+                <div class="color-and-label" style="margin-top: 20px;">
+                    <div id="fixed-color-display"></div>
+                    <span>Reference color</span>
+                </div>
+                <div class="vertical-line"></div>
+                <div class="color-and-label" style="margin-top: 20px;">
+                    <div id="additional-color-display"></div>
+                    <span>Test Color</span>
+                </div>
+            </div>
+            <div class="slider-container">
+                <input type="range" min="0" max="100" value="0" id="color-slider">
+                <div class="instruction">
+                    Please slide the bar until the test color becomes the same as the reference color.
+                </div>
+                <!-- x<div class="reminder">Reminder: answering this question accurately will give you a bonus.</div> -->
+            </div>
+        </div>
+
+        <!-- <h3 class="left-aligned">Question 2: How confident are you about the color match?</h3>
+
+        <div class="confidence-buttons">
+            <label><input type="radio" name="preferred_color" value="Red"> Very unconfident</label>
+            <label><input type="radio" name="preferred_color" value="Green"> Somewhat unconfident</label>
+            <label><input type="radio" name="preferred_color" value="Blue"> Neutral</label>
+            <label><input type="radio" name="preferred_color" value="Yellow"> Somewhat confident</label>
+            <label><input type="radio" name="preferred_color" value="Yellow"> Very confident</label>
+        </div> -->
+
+        <!-- <div class="button-group">
+            <button id="next-page">Submit</button>
+        </div> -->
+
+        <div class="left-aligned">
+            <h1>Quick Test</h1>
+            <p>The following questions test your basic understanding of this task, the survey proceeds only when you answer both of them correctly. If you answer incorrectly, you may not be eligible for payment. Click the VERIFY button when you are ready to submit your answers.</p>
+            <div class="question2">
+                <p>Q1: How many reference color(s) are in each question?</p>
+                <div class="options" id="question1-options">
+                    <div class="option" data-value="0" onclick="selectOption(this)">0</div>
+                    <div class="option" data-value="1" onclick="selectOption(this)">1</div>
+                    <div class="option" data-value="2" onclick="selectOption(this)">2</div>
+                </div>
+                <p>Q2: You stop sliding when the color <b>first</b> becomes ___ to the reference color.</p>
+                <div class="options" id="question2-options">
+                    <div class="option" data-value="similar" onclick="selectOption(this)">similar</div>
+                    <div class="option" data-value="dissimilar" onclick="selectOption(this)">dissimilar</div>
+                </div>
+            </div> 
+        </div>
+        <button onclick="verifyAnswers()">VERIFY</button>
+        <div id="feedback"></div>
     </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Function to update slider background
+            function updateSliderBackground(slider) {
+                const value = slider.value;
+                const percentage = value / 100;
+                slider.style.background = `linear-gradient(to right, ${leftmostColor} ${percentage}%, ${refColor} ${percentage}%)`;
+            }
+
+            const leftmostColor = 'rgb(153, 144, 156)';
+            const refColor = 'rgb(184, 175, 178)';
+            const slider = document.getElementById('color-slider');
+            updateSliderBackground(slider);
+
+            document.getElementById('fixed-color-display').style.backgroundColor = refColor;
+            document.getElementById('additional-color-display').style.backgroundColor = leftmostColor;
+
+            document.getElementById('color-slider').addEventListener('input', function () {
+                const sliderValue = this.value / 100;
+                const adjustedColor = `rgb(${153 * (1 - sliderValue) + 184 * sliderValue}, ${144 * (1 - sliderValue) + 175 * sliderValue}, ${156 * (1 - sliderValue)+ 178 * sliderValue})`;
+                document.getElementById('additional-color-display').style.backgroundColor = adjustedColor;
+                updateSliderBackground(this);
+            });
+        });
+
+        document.querySelectorAll('.option').forEach(option => {
+            option.addEventListener('click', function() {
+                const parent = this.parentElement;
+                parent.querySelectorAll('.option').forEach(opt => opt.classList.remove('selected'));
+                this.classList.add('selected');
+            });
+        });
+
+        function selectOption(optionElement) {
+            // Deselect any previously selected option in the same group
+            const parent = optionElement.parentElement;
+            parent.querySelectorAll('.option').forEach(opt => opt.classList.remove('selected'));
+
+            // Mark the clicked option as selected
+            optionElement.classList.add('selected');
+        }
+
+        // Prevent user from navigating back
+        window.onpopstate = function () {
+            history.pushState(null, null, location.href);
+        };
+        history.pushState(null, null, location.href);
+
+        // // Check if the user has already answered
+        // document.addEventListener('DOMContentLoaded', function() {
+        //     const storedAnswers = localStorage.getItem('userAnswers');
+            
+        //     if (storedAnswers) {
+        //         window.location.replace('failure.html');
+        //     }
+        // });
+
+
+        const maxAttempts = 2;
+        let attempts = 0;
+        function verifyAnswers() {
+            const q1 = document.querySelector('#question1-options .selected');
+            const q2 = document.querySelector('#question2-options .selected');
+            const feedback = document.getElementById('feedback');
+
+            console.log("attempts: ", attempts, "maxattempts: ", maxAttempts)
+
+            if (attempts < maxAttempts) {
+                if (!q1 || !q2) {
+                    feedback.textContent = 'Please answer both questions.';
+                    feedback.style.color = 'red';  // Optional: Set the color of the message to red
+                    return;
+                }
+
+                const correctAnswers = {
+                    q1: '1',
+                    q2: 'similar'
+                };
+
+                attempts++;
+                sessionStorage.setItem('attempts', attempts);
+
+                if (q1.getAttribute('data-value') === correctAnswers.q1 && q2.getAttribute('data-value') === correctAnswers.q2) {
+                    feedback.textContent = 'Correct!';
+                    feedback.style.color = 'green';
+                    // sessionStorage.setItem('completed', 'true'); 
+                    window.location.replace('/pre_survey');
+                } else {
+                    if (attempts < maxAttempts) {
+                        feedback.textContent = `You answer at least one question incorrectly, please read the instruction and try again. You have ${maxAttempts - attempts} attempt left.`;
+                        feedback.style.color = 'red';
+                    } else {
+                        feedback.textContent = 'Incorrect answers.';
+                        feedback.style.color = 'red';
+                        sessionStorage.setItem('completed', 'true'); 
+                        window.location.replace('/failure');  
+                    }
+                }
+            }
+        }
+
+        // Disable question options after maximum attempts
+        function disableOptions() {
+            const completed = sessionStorage.getItem('completed');
+            if (attempts >= maxAttempts || completed === 'true') {
+                const options = document.querySelectorAll('#question1-options .option, #question2-options .option');
+                options.forEach(option => {
+                    option.classList.add('disabled');  // Optional: Add a class to style disabled options
+                    option.removeEventListener('click', handleOptionClick);  // Prevent further clicks
+                });
+
+                const verifyButton = document.querySelector('button');
+                if (verifyButton) {
+                    verifyButton.disabled = true;
+                    verifyButton.style.cursor = 'not-allowed';
+                }
+            }
+        }
+
+        function handleOptionClick(event) {
+            const option = event.target;
+            const allOptions = option.parentNode.querySelectorAll('.option');
+            allOptions.forEach(opt => opt.classList.remove('selected'));
+            option.classList.add('selected');
+        }
+
+        document.querySelectorAll('#question1-options .option, #question2-options .option').forEach(option => {
+            option.addEventListener('click', handleOptionClick);
+        });
+
+        disableOptions();  
+
+    </script>
 </body>
 </html>

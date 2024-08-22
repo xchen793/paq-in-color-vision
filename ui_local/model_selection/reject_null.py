@@ -7,19 +7,15 @@ import matplotlib.pyplot as plt
 
 
 solvers = [cp.SCS, cp.CVXOPT]
-name = "L"
 
 center_points = [(0.25, 0.34), (0.29, 0.40)]
 
 def load_data(filename):
-    """Load JSON data from a file."""
     with open(filename, 'r') as file:
         data = json.load(file)
     return data
 
-
 def divide_data_by_flag(data):
-    print("data: ", data["model_rejection"])
     fast_data = {}
     slow_data = {}
 
@@ -30,12 +26,7 @@ def divide_data_by_flag(data):
             details = value
             if 'endColor' in details:
                 flag = details['endColor'].get('flag')
-                
-                # Constructing a unique key from both fixedColor and query_vec
-                fixed = (details['fixedColor']['x'], details['fixedColor']['y'])
-                query = (details['query_vec']['x'], details['query_vec']['y'], details['query_vec']['Y'])
-                unique_key = (fixed, query)
-                
+
                 if flag == 'fast':
                     fast_data[key] = details
                 elif flag == 'slow':
@@ -48,27 +39,15 @@ def divide_data_by_flag(data):
     return fast_data, slow_data
 
 
-# def check_key_completeness(fast_data, slow_data):
-#     fast_keys = set(fast_data.keys())
-#     slow_keys = set(slow_data.keys())
+# def subtract_lists(dict1, dict2):
+#     result = {}
 
-#     if not (fast_keys  == slow_keys):
-#         print("Mismatch in keys across datasets")
-#         if fast_keys != slow_keys:
-#             print("Differences between fast and slow:", fast_keys.symmetric_difference(slow_keys))
-#     else:
-#         print("All datasets have the same keys.")
+#     for key, value1 in dict1.items():
+#         if key in dict2:
+#             value2 = dict2[key]
+#             result[key] = value1 - value2
 
-
-def subtract_lists(dict1, dict2):
-    result = {}
-
-    for key, value1 in dict1.items():
-        if key in dict2:
-            value2 = dict2[key]
-            result[key] = value1 - value2
-
-    return result
+#     return result
 
 
 def merge_by_first_key_element(dictionary):
@@ -105,10 +84,40 @@ def scale_gamma(data, scale_factor: float):
     for _, details in data.items():
         details['gamma'] *= scale_factor
 
+
+def f_test(val_1, val_2, df, alpha):
+    F = val_1 / val_2
+    df1 = df
+    df2 = df
+    p_value = 1 - stats.f.cdf(F, df1, df2)
+
+    F_crit = stats.f.ppf(1 - alpha, df1, df2)
+    print("p_value: ", p_value)
+
+    if F > F_crit:
+        print("Reject the null hypothesis: The variances are significantly different.")
+    else:
+        print("Fail to reject the null hypothesis: The variances are not significantly different.")
+    return p_value
+
+
+def sweep_alpha_and_plot(data):
+
+    alphas = np.arange(0, 1.01, 0.01)
+    p_values = [f_test(var1, var2, 29, alpha) for alpha in alphas] # A numpy array ranging from 0 to 1 in steps of 0.01
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(alphas, p_values, marker='o')
+    plt.xlabel('Alpha')
+    plt.ylabel('P-value')
+    plt.title('Alpha vs P-value')
+    plt.grid(True)
+    plt.show()
+
 if __name__ == "__main__":
-    data = load_data('ui_local/data/model_rejection/model_rejection_lorraine.json')
+    # data = load_data('data/model_rejection_lorraine.json')
+    data = load_data('data/prev/model_rejection_austin.json')
     fast_data, slow_data = divide_data_by_flag(data)
-    # check_key_completeness(fast_data, slow_data)
 
     fast_gamma = store_noise_by_keys(fast_data, 1/2)
     slow_gamma = store_noise_by_keys(slow_data)
@@ -143,13 +152,6 @@ if __name__ == "__main__":
         else:
             mean2 = value
         print("{}: {}".format(key, value))
-
-    # print("------------------std_fast(gamma^2)-------------------")
-    # for key, value in std_fast_gamma.items():
-    #     print("{}: {}".format(key, value))
-    # print("------------------std_slow(gamma^2)-------------------")
-    # for key, value in std_slow_gamma.items():
-    #     print("{}: {}".format(key, value))
     print("------------------var(gamma^2)-------------------")
     for key, value in var_gamma.items():
         if key == ((0.32, 0.32), (1, 0, 0)):
@@ -157,45 +159,10 @@ if __name__ == "__main__":
         else:
             var2 = value
         print("{}: {}".format(key, value))
-    # print("------------------var_slow(gamma^2)-------------------")
-    # for key, value in var_slow_gamma.items():
-    #     print("{}: {}".format(key, value))
-
-####################### Tests ########################
-def f_test(val_1, val_2, df, alpha):
-    F = val_1 / val_2
-    df1 = df
-    df2 = df
-    p_value = 1 - stats.f.cdf(F, df1, df2)
-
-    F_crit = stats.f.ppf(1 - alpha, df1, df2)
-    print("p_value: ", p_value)
-
-    # Make a decision
-    if F > F_crit:
-        print("Reject the null hypothesis: The variances are significantly different.")
-    else:
-        print("Fail to reject the null hypothesis: The variances are not significantly different.")
-    return p_value
 
 
-def sweep_alpha_and_plot(data):
-
-    alphas = np.arange(0, 1.01, 0.01)
-    p_values = [f_test(var1, var2, 29, alpha) for alpha in alphas] # A numpy array ranging from 0 to 1 in steps of 0.01
-
-    plt.figure(figsize=(10, 6))
-    plt.plot(alphas, p_values, marker='o')
-    plt.xlabel('Alpha')
-    plt.ylabel('P-value')
-    plt.title('Alpha vs P-value')
-    plt.grid(True)
-    plt.show()
-
-if __name__ == "__main__":
-
-    data = load_data('ui_local/data/model_rejection/model_rejection_austin.json')
-    sweep_alpha_and_plot(data)
+    f_test(var1, var2, 29, 0.05)
+    # sweep_alpha_and_plot(data)
 
 
 

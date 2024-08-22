@@ -1,9 +1,11 @@
 import json
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from matplotlib.patches import Ellipse
 from matplotlib import colors as mcolors
+import colour
 
 def mahalanobis_distance(x, mean, inv_cov):
     """Calculate the Mahalanobis distance."""
@@ -24,10 +26,12 @@ def objective_function(cov_params, data_points, fixed_point):
 fig, ax = colour.plotting.plot_chromaticity_diagram_CIE1931(standalone=False)
 
 # Load the JSON data from the file
-people = ['ashwin', 'austin', 'jingyan', 'lorraine'][:2]
-plot_colors = [mcolors.CSS4_COLORS['crimson'], mcolors.CSS4_COLORS['palegreen'], mcolors.CSS4_COLORS['forestgreen'], mcolors.CSS4_COLORS['crimson']][:2]
+people = ['ashwin', 'austin', 'jingyan', 'lorraine']
+plot_colors = [mcolors.CSS4_COLORS['crimson'], mcolors.CSS4_COLORS['palegreen'], mcolors.CSS4_COLORS['forestgreen'], mcolors.CSS4_COLORS['crimson']]
 for person, plot_color in zip(people, plot_colors): 
-    with open(f'./data/prev/color_data_{person}.json', 'r') as file:
+    directory = './data/prev/'
+    filename = f'color_data_{person}.json'
+    with open(os.path.join(directory, filename), 'r') as file:
         data = json.load(file)
 
     fixed_points_data = {}
